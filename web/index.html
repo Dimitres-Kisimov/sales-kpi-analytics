@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales &amp; Demand Analytics — Dashboard</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:        #f9f9f7;
+    --surface:     #fcfcfb;
+    --primary:     #0b0b0b;
+    --secondary:   #52514e;
+    --muted:       #898781;
+    --grid:        #e1e0d9;
+    --baseline:    #c3c2b7;
+    --border:      rgba(11,11,11,0.10);
+    --series-1:    #2a78d6;  /* blue  — actual / primary */
+    --series-red:  #e34948;  /* red   — forecast */
+    --series-aqua: #1baf7a;  /* aqua  — B class */
+    --good:        #006300;
+    --bad:         #d03b3b;
+    --chip-a-bg:   rgba(42,120,214,0.14);
+    --chip-b-bg:   rgba(27,175,122,0.14);
+    --chip-c-bg:   rgba(137,135,129,0.16);
+    --shadow:      0 1px 2px rgba(11,11,11,0.05), 0 4px 12px rgba(11,11,11,0.04);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:        #0d0d0d;
+    --surface:     #1a1a19;
+    --primary:     #ffffff;
+    --secondary:   #c3c2b7;
+    --muted:       #898781;
+    --grid:        #2c2c2a;
+    --baseline:    #383835;
+    --border:      rgba(255,255,255,0.10);
+    --series-1:    #3987e5;
+    --series-red:  #e66767;
+    --series-aqua: #199e70;
+    --good:        #0ca30c;
+    --bad:         #e66767;
+    --chip-a-bg:   rgba(57,135,229,0.20);
+    --chip-b-bg:   rgba(25,158,112,0.20);
+    --chip-c-bg:   rgba(137,135,129,0.22);
+    --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 4px 14px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page);
+    color: var(--primary);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 24px 20px 64px; }
+
+  header.top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 8px;
+  }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .subtitle { color: var(--secondary); font-size: 0.95rem; margin: 0; max-width: 62ch; }
+  .toggle {
+    border: 1px solid var(--border); background: var(--surface); color: var(--secondary);
+    border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 0.85rem;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    box-shadow: var(--shadow); white-space: nowrap;
+  }
+  .toggle:hover { color: var(--primary); }
+
+  section { margin-top: 34px; }
+  h2 {
+    font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 0 0 14px; font-weight: 600;
+  }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; box-shadow: var(--shadow);
+  }
+
+  /* KPI tiles */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+          padding: 18px 18px 16px; box-shadow: var(--shadow); }
+  .tile .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase;
+                 letter-spacing: 0.06em; font-weight: 600; }
+  .tile .value { font-size: 1.85rem; font-weight: 650; margin-top: 6px; letter-spacing: -0.02em; }
+  .tile .foot { color: var(--secondary); font-size: 0.82rem; margin-top: 4px; }
+  .delta.up { color: var(--good); font-weight: 600; }
+  .delta.down { color: var(--bad); font-weight: 600; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  /* chart */
+  .chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .legend { display: flex; gap: 16px; font-size: 0.82rem; color: var(--secondary); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 22px; height: 0; border-top-width: 3px; border-top-style: solid; border-radius: 2px; display: inline-block; }
+  .chart-wrap { overflow-x: auto; }
+  svg { display: block; width: 100%; height: auto; }
+  .axis-label { fill: var(--muted); font-size: 11px; }
+  text.tick { fill: var(--muted); font-size: 10px; }
+
+  /* region bars */
+  .bars { display: flex; flex-direction: column; gap: 12px; }
+  .bar-row { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 12px; }
+  .bar-name { color: var(--secondary); font-size: 0.85rem; }
+  .bar-track { background: var(--grid); border-radius: 6px; height: 22px; overflow: hidden; }
+  .bar-fill { background: var(--series-1); height: 100%; border-radius: 6px 4px 4px 6px; min-width: 3px; }
+  .bar-val { font-size: 0.82rem; color: var(--primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar-sub { color: var(--muted); }
+
+  /* table */
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  tbody tr:last-child td { border-bottom: none; }
+  .chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.76rem; font-weight: 650;
+          font-variant-numeric: normal; }
+  .chip.A { background: var(--chip-a-bg); color: var(--series-1); }
+  .chip.B { background: var(--chip-b-bg); color: var(--series-aqua); }
+  .chip.C { background: var(--chip-c-bg); color: var(--secondary); }
+
+  /* RFM segments */
+  .segs { display: flex; flex-direction: column; gap: 10px; }
+  .seg-row { display: grid; grid-template-columns: 150px 1fr 40px; align-items: center; gap: 12px; }
+  .seg-name { font-size: 0.85rem; color: var(--secondary); }
+  .seg-track { background: var(--grid); border-radius: 6px; height: 18px; overflow: hidden; }
+  .seg-fill { height: 100%; border-radius: 6px; }
+  .seg-count { text-align: right; font-size: 0.82rem; font-variant-numeric: tabular-nums; color: var(--primary); }
+
+  /* decision cards */
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 860px) { .cards { grid-template-columns: 1fr; } }
+  .decision { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--series-1);
+              border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow); font-size: 0.92rem; color: var(--secondary); }
+  .decision strong { color: var(--primary); }
+
+  footer.foot { margin-top: 44px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 16px; }
+  a { color: var(--series-1); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Sales &amp; Demand Analytics</h1>
+      <p class="subtitle">Distributor order data → decisions leadership can act on. KPIs, portfolio mix, customer segments and an out-of-sample-validated revenue forecast — rendered fully offline, no server, no CDN.</p>
+    </div>
+    <button class="toggle" id="themeToggle" type="button" aria-label="Toggle colour theme">
+      <span id="themeIcon">🌙</span><span id="themeText">Dark</span>
+    </button>
+  </header>
+
+  <section aria-label="Headline KPIs">
+    <h2>Headline KPIs</h2>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <div class="card">
+      <div class="chart-head">
+        <h2 style="margin-bottom:0">Monthly revenue &amp; forecast</h2>
+        <div class="legend">
+          <span><i class="swatch" style="border-top-color:var(--series-1)"></i>actual</span>
+          <span><i class="swatch" style="border-top-color:var(--series-red); border-top-style:dashed"></i>forecast</span>
+        </div>
+      </div>
+      <div class="chart-wrap"><svg id="chart" viewBox="0 0 920 340" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Monthly revenue history with a three-month forecast"></svg></div>
+      <p class="subtitle" id="chartNote" style="margin-top:10px"></p>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="card">
+      <h2>Revenue by region</h2>
+      <div class="bars" id="regionBars"></div>
+    </div>
+    <div class="card">
+      <h2>RFM customer segments</h2>
+      <div class="segs" id="rfmSegs"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>Portfolio — ABC × XYZ</h2>
+      <div style="overflow-x:auto">
+        <table id="abcTable">
+          <thead><tr>
+            <th>Category</th><th>Revenue</th><th>Share</th><th>Class</th><th>CV</th><th>Pattern</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="subtitle" style="margin-top:12px">A/B/C = Pareto share of revenue (A ≤ 80%, B ≤ 95%, C rest). X/Y/Z = monthly-demand variability (X steady, Z erratic). Cutoffs are tunable conventions.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the numbers say — decision cards</h2>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <footer class="foot">
+    Generated from <span id="orderCount"></span> synthetic orders over 24 months ·
+    forecast model selected by rolling-origin cross-validation (MASE) ·
+    built by Dimitres Kisimov · MIT.
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  "use strict";
+  var A = window.ANALYSIS;
+  if (!A) { document.body.innerHTML = "<div class='wrap'>data.js missing — run <code>python scripts/build_web_data.py</code></div>"; return; }
+
+  // ---- helpers ----
+  var eur0 = function (v) { return "€" + Math.round(v).toLocaleString("en-US"); };
+  var eurM = function (v) { return "€" + (v / 1e6).toFixed(2) + "M"; };
+  var pct = function (v) { return (v == null ? "—" : v.toFixed(1) + "%"); };
+  var el = function (tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  var css = function (name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); };
+
+  // ---- KPI tiles ----
+  var k = A.kpi, g = A.growth;
+  var yoy = g.yoy_pct;
+  var yoyClass = yoy == null ? "" : (yoy >= 0 ? "up" : "down");
+  var yoyArrow = yoy == null ? "" : (yoy >= 0 ? "▲" : "▼");
+  var tiles = [
+    { label: "Revenue", value: eurM(k.revenue_eur), foot: k.orders.toLocaleString() + " orders" },
+    { label: "Gross margin", value: k.gross_margin_pct.toFixed(1) + "%", foot: eur0(k.gross_margin_eur) },
+    { label: "Revenue YoY", value: "<span class='delta " + yoyClass + "'>" + yoyArrow + " " + pct(Math.abs(yoy)) + "</span>", foot: "last 12m vs prior 12m" },
+    { label: "OTIF", value: k.otif_pct.toFixed(0) + "%", foot: "on-time & in-full" },
+    { label: "Avg order value", value: eur0(k.aov_eur), foot: k.active_customers + " active customers" }
+  ];
+  var tilesEl = document.getElementById("tiles");
+  tiles.forEach(function (t) {
+    var d = el("div", "tile");
+    d.appendChild(el("div", "label", t.label));
+    d.appendChild(el("div", "value", t.value));
+    d.appendChild(el("div", "foot", t.foot));
+    tilesEl.appendChild(d);
+  });
+  document.getElementById("orderCount").textContent = k.orders.toLocaleString();
+
+  // ---- Revenue + forecast line chart (hand-drawn SVG) ----
+  var rf = A.revenue_forecast;
+  function drawChart() {
+    var svg = document.getElementById("chart");
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var W = 920, H = 340, m = { t: 16, r: 18, b: 34, l: 64 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var hist = rf.history, fc = rf.forecast;
+    var all = hist.concat(fc);
+    var n = all.length;
+    var maxV = Math.max.apply(null, all) * 1.08;
+    var minV = 0;
+    var x = function (i) { return m.l + (n === 1 ? 0 : i * iw / (n - 1)); };
+    var y = function (v) { return m.t + ih - (v - minV) / (maxV - minV) * ih; };
+    var NS = "http://www.w3.org/2000/svg";
+    function mk(tag, attrs) { var e = document.createElementNS(NS, tag); for (var a in attrs) e.setAttribute(a, attrs[a]); return e; }
+
+    // gridlines + y ticks
+    var ticks = 4;
+    for (var t = 0; t <= ticks; t++) {
+      var val = minV + (maxV - minV) * t / ticks;
+      var yy = y(val);
+      svg.appendChild(mk("line", { x1: m.l, y1: yy, x2: W - m.r, y2: yy, stroke: css("--grid"), "stroke-width": 1 }));
+      var lbl = mk("text", { x: m.l - 8, y: yy + 3, "text-anchor": "end", class: "tick" });
+      lbl.textContent = "€" + (val / 1e6).toFixed(1) + "M";
+      svg.appendChild(lbl);
+    }
+    // baseline
+    svg.appendChild(mk("line", { x1: m.l, y1: y(0), x2: W - m.r, y2: y(0), stroke: css("--baseline"), "stroke-width": 1 }));
+
+    // x ticks (every ~4th month index)
+    for (var i = 0; i < hist.length; i += 4) {
+      var tx = mk("text", { x: x(i), y: H - 14, "text-anchor": "middle", class: "tick" });
+      tx.textContent = "m" + (i + 1);
+      svg.appendChild(tx);
+    }
+
+    // actual line
+    var dHist = hist.map(function (v, i) { return (i ? "L" : "M") + x(i) + " " + y(v); }).join(" ");
+    svg.appendChild(mk("path", { d: dHist, fill: "none", stroke: css("--series-1"), "stroke-width": 2.5, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+
+    // forecast line (connect from last actual)
+    var fx = hist.length - 1;
+    var dFc = "M" + x(fx) + " " + y(hist[hist.length - 1]);
+    fc.forEach(function (v, i) { dFc += " L" + x(hist.length + i) + " " + y(v); });
+    svg.appendChild(mk("path", { d: dFc, fill: "none", stroke: css("--series-red"), "stroke-width": 2.5, "stroke-dasharray": "6 5", "stroke-linejoin": "round", "stroke-linecap": "round" }));
+
+    // forecast markers
+    fc.forEach(function (v, i) {
+      svg.appendChild(mk("circle", { cx: x(hist.length + i), cy: y(v), r: 4.5, fill: css("--series-red"), stroke: css("--surface"), "stroke-width": 2 }));
+    });
+    // last actual marker
+    svg.appendChild(mk("circle", { cx: x(fx), cy: y(hist[hist.length - 1]), r: 4.5, fill: css("--series-1"), stroke: css("--surface"), "stroke-width": 2 }));
+  }
+  drawChart();
+  document.getElementById("chartNote").innerHTML =
+    "Model selected by rolling-origin CV: <strong>" + rf.winner + "</strong> " +
+    "(CV-MASE " + rf.cv_mase.toFixed(2) + "; &lt;1 beats the seasonal-naive baseline). " +
+    "Next 3 months: " + rf.forecast.map(eur0).join(", ") + ".";
+
+  // ---- Revenue by region bars ----
+  var regions = A.regions;
+  var maxRev = Math.max.apply(null, regions.map(function (r) { return r.revenue_eur; }));
+  var rb = document.getElementById("regionBars");
+  regions.forEach(function (r) {
+    var row = el("div", "bar-row");
+    row.appendChild(el("div", "bar-name", r.region));
+    var track = el("div", "bar-track");
+    var fill = el("div", "bar-fill");
+    fill.style.width = (r.revenue_eur / maxRev * 100).toFixed(1) + "%";
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(el("div", "bar-val", eurM(r.revenue_eur) + " <span class='bar-sub'>· " + r.margin_pct.toFixed(0) + "%</span>"));
+    rb.appendChild(row);
+  });
+
+  // ---- RFM segments ----
+  var segColors = {
+    "Champions": "--series-1", "Loyal / high-value": "--series-aqua",
+    "Developing": "--series-1", "At risk": "--series-red", "Churned / dormant": "--baseline"
+  };
+  var segs = A.rfm_segments;
+  var order = ["Champions", "Loyal / high-value", "Developing", "At risk", "Churned / dormant"];
+  var maxSeg = Math.max.apply(null, Object.keys(segs).map(function (s) { return segs[s]; }));
+  var se = document.getElementById("rfmSegs");
+  order.forEach(function (name) {
+    if (segs[name] == null) return;
+    var row = el("div", "seg-row");
+    row.appendChild(el("div", "seg-name", name));
+    var track = el("div", "seg-track");
+    var fill = el("div", "seg-fill");
+    fill.style.width = (segs[name] / maxSeg * 100).toFixed(1) + "%";
+    fill.style.background = "var(" + (segColors[name] || "--series-1") + ")";
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(el("div", "seg-count", segs[name]));
+    se.appendChild(row);
+  });
+
+  // ---- ABC-XYZ table ----
+  var tb = document.querySelector("#abcTable tbody");
+  A.abc_xyz.forEach(function (r) {
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td>" + r.product_category + "</td>" +
+      "<td>" + eur0(r.revenue_eur) + "</td>" +
+      "<td>" + r.revenue_share_pct.toFixed(1) + "%</td>" +
+      "<td><span class='chip " + r.abc + "'>" + r["class"] + "</span></td>" +
+      "<td>" + r.cv.toFixed(2) + "</td>" +
+      "<td class='bar-sub'>" + xyzWord(r.xyz) + "</td>";
+    tb.appendChild(tr);
+  });
+  function xyzWord(x) { return x === "X" ? "steady" : x === "Y" ? "variable" : "erratic"; }
+
+  // ---- Decision cards ----
+  var cc = document.getElementById("cards");
+  A.decision_cards.forEach(function (c) {
+    // bold the leading clause up to the first ':' or ';'
+    var html = c.replace(/^([^:;]+[:;])/, "<strong>$1</strong>");
+    cc.appendChild(el("div", "decision", html));
+  });
+
+  // ---- theme toggle ----
+  var root = document.documentElement;
+  var btn = document.getElementById("themeToggle");
+  function setTheme(mode) {
+    root.setAttribute("data-theme", mode);
+    document.getElementById("themeIcon").textContent = mode === "dark" ? "☀️" : "🌙";
+    document.getElementById("themeText").textContent = mode === "dark" ? "Light" : "Dark";
+    drawChart(); // recolor chart strokes from CSS vars
+  }
+  // honour OS preference on first load
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) setTheme("dark");
+  btn.addEventListener("click", function () {
+    setTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+})();
+</script>
+</body>
+</html>
