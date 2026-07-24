@@ -14,6 +14,12 @@ and Holt-Winters from scratch forces you to actually understand them. `openpyxl`
 and `matplotlib` are the only third-party packages, and only for the Excel and
 chart/PDF outputs — everything else runs on a bare Python install.
 
+**Business case:** it turns a €21.8M-revenue distributor's 24 months of orders into
+the QBR decisions leadership actually acts on — including the **€2.6M/year discount
+leakage** the current process leaves unmanaged. See
+[`docs/BUSINESS_CASE.md`](docs/BUSINESS_CASE.md) for the situation, the quantified
+problem and the ROI.
+
 ![Revenue history and 3-month forecast](deliverables/forecast.png)
 
 ![MIT](https://img.shields.io/badge/license-MIT-blue) · Python 3.10–3.12 · stdlib core
