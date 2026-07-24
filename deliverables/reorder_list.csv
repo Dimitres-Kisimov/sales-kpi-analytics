@@ -1,0 +1,29 @@
+region,category,abc_class,service_level,avg_demand,safety_stock,reorder_point,on_hand,recommended_order_qty
+DACH-North,fasteners,C,0.9,2733.2,1132.8,3866.1,1711.0,4888.3
+East,fasteners,C,0.9,2809.9,1057.8,3867.7,2112.4,4565.2
+DACH-South,fasteners,C,0.9,3128.0,1290.8,4418.8,3029.8,4517.1
+West,fasteners,C,0.9,2308.5,922.0,3230.5,1775.9,3763.1
+Nordics,fasteners,C,0.9,2424.3,951.4,3375.7,2063.4,3736.7
+DACH-North,ppe,C,0.9,1974.3,660.8,2635.1,1435.5,3173.9
+Nordics,chemicals,C,0.9,1493.5,827.4,2320.9,684.6,3129.7
+DACH-North,chemicals,C,0.9,1919.0,673.4,2592.5,1459.7,3051.8
+DACH-North,abrasives,C,0.9,1765.0,742.4,2507.4,1323.7,2948.7
+East,chemicals,C,0.9,1685.2,755.0,2440.3,1297.6,2827.9
+DACH-South,chemicals,C,0.9,1747.5,743.8,2491.3,1491.9,2746.8
+DACH-South,power tools,A,0.98,1363.4,1177.3,2540.6,1183.9,2720.1
+DACH-South,ppe,C,0.9,1709.5,539.8,2249.3,1302.0,2656.8
+Nordics,abrasives,C,0.9,1656.5,984.4,2640.9,1677.0,2620.5
+West,ppe,C,0.9,1476.0,863.5,2339.5,1231.8,2583.7
+DACH-South,hand tools,B,0.95,1211.8,904.8,2116.6,757.2,2571.2
+Nordics,ppe,C,0.9,1516.8,796.7,2313.5,1264.0,2566.4
+East,abrasives,C,0.9,1665.6,675.6,2341.2,1453.2,2553.7
+DACH-South,abrasives,C,0.9,1855.9,536.6,2392.5,1698.2,2550.2
+West,abrasives,C,0.9,1310.2,711.2,2021.4,805.9,2525.7
+East,ppe,C,0.9,1470.7,552.8,2023.5,1043.2,2451.0
+East,hand tools,B,0.95,1157.8,909.2,2067.0,860.3,2364.5
+West,chemicals,C,0.9,1307.4,592.1,1899.5,943.6,2263.3
+DACH-North,hand tools,B,0.95,1144.0,847.4,1991.4,1009.9,2125.4
+Nordics,hand tools,B,0.95,879.0,720.4,1599.4,551.6,1926.8
+East,power tools,A,0.98,1099.1,1059.7,2158.8,1365.4,1892.5
+West,hand tools,B,0.95,867.8,627.9,1495.7,550.2,1813.3
+DACH-North,power tools,A,0.98,990.4,934.0,1924.4,1506.3,1408.5
