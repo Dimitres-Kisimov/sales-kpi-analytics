@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environments
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Intermediate render scratch from scripts/make_presentation.py
+deliverables/_slides/
+
+# NOTE: data/sales_transactions.csv and the deliverables/ example outputs are
+# committed on purpose so the repo is browsable without running anything.

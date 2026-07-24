@@ -1,0 +1,16 @@
+# sales-kpi-analytics — dependencies
+#
+# The analytics CORE is pure Python standard library (csv, sqlite3, statistics,
+# json, dataclasses, math). You can run the metrics, forecasting, inventory and
+# SQL cross-check with NO third-party packages installed.
+#
+# The two packages below are OPTIONAL and only enrich the deliverables:
+#   openpyxl    -> deliverables/kpi_workbook.xlsx  (multi-sheet Excel export)
+#   matplotlib  -> deliverables/forecast.png       (revenue + forecast chart)
+# Without them the CLI still writes analysis.json, the QBR report and the
+# reorder list, and simply skips the Excel workbook / PNG.
+
+openpyxl>=3.1    # optional — Excel workbook deliverable
+matplotlib>=3.8  # optional — forecast chart deliverable
+
+# Dev tooling (tests + lint): pip install pytest ruff
