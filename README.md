@@ -22,7 +22,7 @@ problem and the ROI.
 
 ![Revenue history and 3-month forecast](deliverables/forecast.png)
 
-![MIT](https://img.shields.io/badge/license-MIT-blue) · Python 3.10–3.12 · stdlib core
+© 2026 Dimitres Kisimov — all rights reserved; published for portfolio review. See LICENSE. · Python 3.10–3.12 · stdlib core
 
 ## Run it
 
@@ -98,4 +98,4 @@ The dataset is **100% synthetic**, generated deterministically by
 
 I built this while applying for a **Data & AI Analytics** internship at Würth —
 the role is squarely BI / KPI reporting / predictive analytics for a distributor,
-which is exactly the shape of this project. MIT licensed; use any of it.
+which is exactly the shape of this project. © 2026 Dimitres Kisimov — all rights reserved; published for portfolio review. See LICENSE.

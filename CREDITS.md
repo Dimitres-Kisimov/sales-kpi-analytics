@@ -29,5 +29,5 @@ The forecasting and inventory methods are standard, published techniques:
   operations-management and commercial-analytics conventions.
 
 ## Author
-Built by **Dimitres Kisimov** as a portfolio project. Licensed MIT (see
-[LICENSE](LICENSE)).
+Built by **Dimitres Kisimov** as a portfolio project. © 2026 Dimitres Kisimov,
+all rights reserved (see [LICENSE](LICENSE)).
