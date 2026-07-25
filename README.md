@@ -7,6 +7,8 @@ KPIs, a margin bridge, an ABC-XYZ portfolio view, RFM customer segments, a deman
 forecast that's been validated out-of-sample, a replenishment buy-list, and a
 polished executive review you could drop in front of a management team.
 
+![Sales & Demand Analytics web dashboard — headline KPIs and the monthly revenue chart with 3-month forecast](docs/img/dashboard.png)
+
 The analytics core is **pure Python standard library** — `csv`, `sqlite3`,
 `statistics`, `json`. No pandas, no numpy. That was a deliberate constraint:
 partly to keep it dependency-light, partly because writing MASE, Croston's method
