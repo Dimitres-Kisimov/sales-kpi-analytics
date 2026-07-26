@@ -264,6 +264,70 @@ def slide_spend(a):
     return fig
 
 
+def slide_leakage(a):
+    """The discount-leakage drill-down: waterfall + who/where offender split."""
+    fig = new_slide("Discount leakage — who, where",
+                    "Gross list value to net revenue; leakage split vs an assumed "
+                    "10% sanctioned-discount ceiling")
+    dd = (a.get("expenditure") or {}).get("leakage_drilldown")
+    if not dd:
+        ax = fig.add_axes([0.1, 0.2, 0.8, 0.5])
+        ax.axis("off")
+        ax.text(0.5, 0.5, "Re-run the analysis to add the drill-down", ha="center", color=MUTE)
+        return fig
+
+    # left: waterfall gross -> within-policy -> excess -> net
+    ax = fig.add_axes([0.07, 0.14, 0.46, 0.58])
+    ax_clean(ax)
+    gross = dd["gross_list_value_eur"] / 1e6
+    within = dd["within_policy_discount_eur"] / 1e6
+    excess = dd["excess_discount_eur"] / 1e6
+    net = dd["net_revenue_eur"] / 1e6
+    bars = [("Gross\nlist", 0.0, gross, MUTE, f"{gross:,.2f}M"),
+            ("Within\npolicy", gross - within, within, BLUE, f"-{within:,.2f}M"),
+            ("Excess", net, excess, PINK, f"-{excess:,.2f}M"),
+            ("Net\nrevenue", 0.0, net, INK, f"{net:,.2f}M")]
+    for i, (_, bottom, height, color, lab) in enumerate(bars):
+        ax.bar(i, height, bottom=bottom, color=color, width=0.6,
+               edgecolor="white", linewidth=1.5)
+        ax.annotate(lab, (i, bottom + height), textcoords="offset points",
+                    xytext=(0, 6), ha="center", fontsize=11, color=INK)
+    for i, lvl in enumerate([gross, gross - within, net]):
+        ax.plot([i + 0.3, i + 0.7], [lvl, lvl], color=MUTE, lw=1, ls=":")
+    ax.set_xticks(range(4))
+    ax.set_xticklabels([b[0] for b in bars], fontsize=10)
+    ax.set_ylabel("€M")
+
+    # right: per-rep offender bars (top 6 by excess)
+    reps = dd["by_sales_rep"][:6]
+    ax2 = fig.add_axes([0.62, 0.14, 0.32, 0.58])
+    ax_clean(ax2)
+    names = [f"{r['sales_rep']} ({r['region']})" for r in reps][::-1]
+    wp = [r["within_policy_eur"] / 1e3 for r in reps][::-1]
+    ex = [r["excess_eur"] / 1e3 for r in reps][::-1]
+    ax2.barh(names, wp, color=BLUE, label="within policy", edgecolor="white", linewidth=1)
+    ax2.barh(names, ex, left=wp, color=PINK, label="excess", edgecolor="white", linewidth=1)
+    for i, r in enumerate(reps[::-1]):
+        ax2.text(wp[i] + ex[i], i, f" {r['leakage_eur'] / 1e3:,.0f}k",
+                 va="center", fontsize=10, color=INK)
+    ax2.set_xlim(0, max(w + e for w, e in zip(wp, ex, strict=False)) * 1.24)
+    ax2.set_xlabel("€k leakage")
+    ax2.legend(frameon=False, fontsize=9, loc="lower right")
+    ax2.tick_params(axis="y", labelsize=10)
+    ax2.set_title("Top reps by excess-over-policy", fontsize=12, color=INK,
+                  fontweight="bold", loc="left")
+
+    top = dd["by_sales_rep"][0]
+    fig.text(0.07, 0.79,
+             f"Total leakage {eur(dd['total_leakage_eur'])} vs list · "
+             f"{eur(dd['excess_discount_eur'])} above the assumed "
+             f"{dd['policy_discount_pct']:.0f}% ceiling · top offender "
+             f"{top['sales_rep']} ({top['region']}): {eur(top['leakage_eur'])}, "
+             f"{top['orders_above_policy_pct']:.0f}% of orders over policy",
+             fontsize=12, color=MUTE)
+    return fig
+
+
 def slide_rfm(a):
     fig = new_slide("Customer segments (RFM)", "Recency / frequency / monetary segmentation")
     segs = a["rfm_segments"]
@@ -315,7 +379,7 @@ def _wrap(text: str, width: int) -> str:
 
 
 SLIDES = [slide_title, slide_scorecard, slide_forecast, slide_bridge,
-          slide_abcxyz, slide_spend, slide_rfm, slide_actions]
+          slide_abcxyz, slide_spend, slide_leakage, slide_rfm, slide_actions]
 
 
 def build_pdf(a) -> int:

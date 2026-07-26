@@ -10,6 +10,7 @@
 - Discount leakage: 10.7% of list value
 
 ## 2. What the numbers say (decision cards)
+- Discount drill-down: Berg (Nordics) leads the leakage table - 268,810 EUR vs list, 75,779 EUR of it above the 10% policy assumption - review discount authority there first.
 - Revenue is up 6.8% YoY; gross margin sits at 22.0%.
 - Margin bridge: volume added 178,052 EUR while mix cost 0 EUR - steer commercial focus accordingly.
 - 158 customers are At-risk/Churned (of 395); hand the named list to sales for win-back.
@@ -50,3 +51,26 @@
 | field-sales | 4,997,452 | 186,012 | 786,435 | 5,969,900 |
 | branch | 3,276,233 | 105,171 | 523,318 | 3,904,722 |
 | phone | 1,740,475 | 49,860 | 261,136 | 2,051,471 |
+
+### 7.1 Discount-leakage drill-down — who, where
+Waterfall: gross list value 24,449,996 EUR − within-policy discounts 1,934,178 EUR − excess discounts 680,725 EUR = net revenue 21,835,094 EUR. Both discount cuts together are the 2,614,903 EUR leakage.
+
+*Policy threshold: 10% of list — assumed sanctioned-discount ceiling (no contract terms in the dataset); within-policy vs excess split depends on it, the total leakage does not.*
+
+Top 5 reps by excess-over-policy (see `leakage_waterfall.png`):
+
+| Rep | Region | Leakage | Excess >policy | % of own revenue | Orders >policy | Median / p90 discount |
+|---|---|--:|--:|--:|--:|--:|
+| Berg | Nordics | 268,810 | 75,779 | 12.5% | 36% | 7.7% / 16.2% |
+| Nowak | East | 292,292 | 73,368 | 11.9% | 29% | 7.0% / 14.8% |
+| Martin | West | 255,726 | 67,365 | 12.6% | 35% | 7.7% / 15.8% |
+| Braun | DACH-North | 193,020 | 61,165 | 13.4% | 38% | 7.9% / 16.3% |
+| Lindqvist | Nordics | 227,293 | 58,971 | 12.2% | 34% | 7.2% / 15.4% |
+
+| Region | Leakage | Excess >policy | % of region revenue | Orders >policy |
+|---|--:|--:|--:|--:|
+| DACH-South | 615,918 | 155,208 | 11.5% | 30% |
+| DACH-North | 514,756 | 142,571 | 12.4% | 36% |
+| Nordics | 496,103 | 134,751 | 12.3% | 35% |
+| East | 522,793 | 130,203 | 11.7% | 30% |
+| West | 465,333 | 117,992 | 12.2% | 33% |
