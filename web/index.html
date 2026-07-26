@@ -127,6 +127,17 @@
   .chip.B { background: var(--chip-b-bg); color: var(--series-aqua); }
   .chip.C { background: var(--chip-c-bg); color: var(--secondary); }
 
+  /* leakage drill-down */
+  th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+  th.sortable:hover { color: var(--primary); }
+  th.sortable .dir { font-size: 0.7rem; }
+  .dimswitch { display: inline-flex; gap: 6px; }
+  .dimswitch button {
+    border: 1px solid var(--border); background: var(--surface); color: var(--secondary);
+    border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 0.8rem; cursor: pointer;
+  }
+  .dimswitch button[aria-pressed="true"] { background: var(--series-1); color: #fff; border-color: var(--series-1); }
+
   /* RFM segments */
   .segs { display: flex; flex-direction: column; gap: 10px; }
   .seg-row { display: grid; grid-template-columns: 150px 1fr 40px; align-items: center; gap: 12px; }
@@ -200,6 +211,32 @@
         </table>
       </div>
       <p class="subtitle" style="margin-top:12px">A/B/C = Pareto share of revenue (A ≤ 80%, B ≤ 95%, C rest). X/Y/Z = monthly-demand variability (X steady, Z erratic). Cutoffs are tunable conventions.</p>
+    </div>
+  </section>
+
+  <section id="leakSection" hidden>
+    <div class="card">
+      <div class="chart-head">
+        <h2 style="margin-bottom:0">Discount-leakage drill-down — who, where</h2>
+        <div class="legend">
+          <span><i class="swatch" style="border-top-color:var(--secondary)"></i>totals</span>
+          <span><i class="swatch" style="border-top-color:var(--series-1)"></i>within policy</span>
+          <span><i class="swatch" style="border-top-color:var(--series-red)"></i>excess over policy</span>
+        </div>
+      </div>
+      <div class="chart-wrap"><svg id="wfChart" viewBox="0 0 920 320" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Waterfall from gross list value through within-policy and excess discounts to net revenue"></svg></div>
+      <p class="subtitle" id="wfNote" style="margin-top:10px"></p>
+      <div class="chart-head" style="margin-top:18px">
+        <h2 style="margin-bottom:0">Offenders — click a column to sort</h2>
+        <div class="dimswitch" role="group" aria-label="Drill-down dimension">
+          <button type="button" id="dimRep" aria-pressed="true">By rep</button>
+          <button type="button" id="dimRegion" aria-pressed="false">By region</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto; margin-top:10px">
+        <table id="leakTable"><thead></thead><tbody></tbody></table>
+      </div>
+      <p class="subtitle" id="leakPolicyNote" style="margin-top:12px"></p>
     </div>
   </section>
 
@@ -365,6 +402,135 @@
   });
   function xyzWord(x) { return x === "X" ? "steady" : x === "Y" ? "variable" : "erratic"; }
 
+  // ---- Discount-leakage drill-down (waterfall + sortable offenders table) ----
+  var DD = A.expenditure && A.expenditure.leakage_drilldown;
+  function drawWaterfall() {
+    if (!DD) return;
+    var svg = document.getElementById("wfChart");
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var W = 920, H = 320, m = { t: 30, r: 18, b: 40, l: 64 };
+    var iw = W - m.l - m.r, ih = H - m.t - m.b;
+    var NS = "http://www.w3.org/2000/svg";
+    function mk(tag, attrs) { var e = document.createElementNS(NS, tag); for (var a in attrs) e.setAttribute(a, attrs[a]); return e; }
+    var gross = DD.gross_list_value_eur, within = DD.within_policy_discount_eur,
+        excess = DD.excess_discount_eur, net = DD.net_revenue_eur;
+    var maxV = gross * 1.06;
+    var y = function (v) { return m.t + ih - v / maxV * ih; };
+    // gridlines
+    for (var t = 0; t <= 4; t++) {
+      var val = maxV * t / 4, yy = y(val);
+      svg.appendChild(mk("line", { x1: m.l, y1: yy, x2: W - m.r, y2: yy, stroke: css("--grid"), "stroke-width": 1 }));
+      var lbl = mk("text", { x: m.l - 8, y: yy + 3, "text-anchor": "end", class: "tick" });
+      lbl.textContent = "€" + (val / 1e6).toFixed(0) + "M";
+      svg.appendChild(lbl);
+    }
+    var bars = [
+      { l1: "Gross", l2: "list value", bottom: 0, h: gross, color: css("--secondary"), lab: eurM(gross) },
+      { l1: "Within-policy", l2: "discounts", bottom: gross - within, h: within, color: css("--series-1"), lab: "−" + eurM(within) },
+      { l1: "Excess", l2: "discounts", bottom: net, h: excess, color: css("--series-red"), lab: "−" + eurM(excess) },
+      { l1: "Net", l2: "revenue", bottom: 0, h: net, color: css("--secondary"), lab: eurM(net) }
+    ];
+    var bw = 120, slot = iw / 4;
+    bars.forEach(function (b, i) {
+      var cx = m.l + slot * (i + 0.5);
+      svg.appendChild(mk("rect", { x: cx - bw / 2, y: y(b.bottom + b.h), width: bw,
+        height: Math.max(2, y(b.bottom) - y(b.bottom + b.h)), fill: b.color, rx: 4 }));
+      var vl = mk("text", { x: cx, y: y(b.bottom + b.h) - 7, "text-anchor": "middle", class: "tick", "font-weight": 650 });
+      vl.setAttribute("fill", css("--primary"));
+      vl.textContent = b.lab;
+      svg.appendChild(vl);
+      var xl = mk("text", { x: cx, y: H - 22, "text-anchor": "middle", class: "tick" });
+      xl.textContent = b.l1;
+      svg.appendChild(xl);
+      var xl2 = mk("text", { x: cx, y: H - 10, "text-anchor": "middle", class: "tick" });
+      xl2.textContent = b.l2;
+      svg.appendChild(xl2);
+    });
+    // dotted connectors at the running totals
+    [gross, gross - within, net].forEach(function (lvl, i) {
+      var x1 = m.l + slot * (i + 0.5) + bw / 2, x2 = m.l + slot * (i + 1.5) - bw / 2;
+      svg.appendChild(mk("line", { x1: x1, y1: y(lvl), x2: x2, y2: y(lvl),
+        stroke: css("--muted"), "stroke-width": 1, "stroke-dasharray": "3 4" }));
+    });
+  }
+
+  var LEAK_DIM = "sales_rep";
+  var LEAK_SORT = { key: "excess_eur", dir: -1 };
+  var LEAK_COLS = [
+    { key: "name", label: "Name", num: false },
+    { key: "leakage_eur", label: "Leakage", num: true, fmt: eur0 },
+    { key: "excess_eur", label: "Excess >policy", num: true, fmt: eur0 },
+    { key: "within_policy_eur", label: "Within policy", num: true, fmt: eur0 },
+    { key: "leakage_pct_of_revenue", label: "% of revenue", num: true, fmt: function (v) { return v.toFixed(1) + "%"; } },
+    { key: "orders_above_policy_pct", label: "Orders >policy", num: true, fmt: function (v) { return v.toFixed(0) + "%"; } },
+    { key: "median_discount_pct", label: "Median disc.", num: true, fmt: function (v) { return v.toFixed(1) + "%"; } },
+    { key: "p90_discount_pct", label: "p90 disc.", num: true, fmt: function (v) { return v.toFixed(1) + "%"; } }
+  ];
+  function leakRows() {
+    var src = LEAK_DIM === "sales_rep" ? DD.by_sales_rep : DD.by_region;
+    return src.map(function (r) {
+      var o = {};
+      for (var k in r) o[k] = r[k];
+      o.name = LEAK_DIM === "sales_rep" ? r.sales_rep + " · " + r.region : r.region;
+      return o;
+    });
+  }
+  function renderLeakTable() {
+    if (!DD) return;
+    var thead = document.querySelector("#leakTable thead");
+    var tbody = document.querySelector("#leakTable tbody");
+    thead.innerHTML = ""; tbody.innerHTML = "";
+    var tr = document.createElement("tr");
+    LEAK_COLS.forEach(function (c) {
+      var th = document.createElement("th");
+      th.className = "sortable";
+      th.innerHTML = c.label + (LEAK_SORT.key === c.key ? " <span class='dir'>" + (LEAK_SORT.dir < 0 ? "▼" : "▲") + "</span>" : "");
+      th.addEventListener("click", function () {
+        if (LEAK_SORT.key === c.key) LEAK_SORT.dir = -LEAK_SORT.dir;
+        else LEAK_SORT = { key: c.key, dir: c.num ? -1 : 1 };
+        renderLeakTable();
+      });
+      tr.appendChild(th);
+    });
+    thead.appendChild(tr);
+    var rows = leakRows().sort(function (a, b) {
+      var x = a[LEAK_SORT.key], z = b[LEAK_SORT.key];
+      return (x < z ? -1 : x > z ? 1 : 0) * LEAK_SORT.dir;
+    });
+    rows.forEach(function (r) {
+      var trr = document.createElement("tr");
+      trr.innerHTML = LEAK_COLS.map(function (c) {
+        var v = r[c.key];
+        return "<td>" + (c.fmt ? c.fmt(v) : v) + "</td>";
+      }).join("");
+      tbody.appendChild(trr);
+    });
+  }
+  if (DD) {
+    document.getElementById("leakSection").hidden = false;
+    drawWaterfall();
+    var topRep = DD.by_sales_rep[0];
+    document.getElementById("wfNote").innerHTML =
+      "Both discount cuts together are the <strong>" + eur0(DD.total_leakage_eur) +
+      "</strong> leakage (" + eur0(DD.excess_discount_eur) + " of it above the assumed " +
+      DD.policy_discount_pct.toFixed(0) + "% ceiling). Top offender: <strong>" +
+      topRep.sales_rep + " (" + topRep.region + ")</strong> — " + eur0(topRep.leakage_eur) +
+      " vs list, " + topRep.orders_above_policy_pct.toFixed(0) + "% of orders over policy.";
+    document.getElementById("leakPolicyNote").textContent =
+      "Policy threshold " + DD.policy_discount_pct.toFixed(0) + "% of list — " + DD.policy_note + ".";
+    renderLeakTable();
+    var bRep = document.getElementById("dimRep"), bReg = document.getElementById("dimRegion");
+    function setDim(dim) {
+      LEAK_DIM = dim;
+      LEAK_SORT = { key: "excess_eur", dir: -1 };
+      bRep.setAttribute("aria-pressed", String(dim === "sales_rep"));
+      bReg.setAttribute("aria-pressed", String(dim === "region"));
+      renderLeakTable();
+    }
+    bRep.addEventListener("click", function () { setDim("sales_rep"); });
+    bReg.addEventListener("click", function () { setDim("region"); });
+  }
+
   // ---- Decision cards ----
   var cc = document.getElementById("cards");
   A.decision_cards.forEach(function (c) {
@@ -381,6 +547,7 @@
     document.getElementById("themeIcon").textContent = mode === "dark" ? "☀️" : "🌙";
     document.getElementById("themeText").textContent = mode === "dark" ? "Light" : "Dark";
     drawChart(); // recolor chart strokes from CSS vars
+    drawWaterfall();
   }
   // honour OS preference on first load
   if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) setTheme("dark");
