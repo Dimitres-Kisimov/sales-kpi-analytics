@@ -22,6 +22,19 @@ leakage** the current process leaves unmanaged. See
 [`docs/BUSINESS_CASE.md`](docs/BUSINESS_CASE.md) for the situation, the quantified
 problem and the ROI.
 
+**Drill-down — who is leaking margin, where:** the €2,614,903 leakage (list value
+minus revenue, measured across the 24 synthetic months) is now decomposed by sales
+rep and by region, with each rep's discount distribution held against an *assumed*
+10% sanctioned-discount ceiling — €680,725 of the leakage sits above that ceiling
+(the total doesn't depend on the assumption; the within-policy/excess split does).
+Measured top offender: **Berg (Nordics)** — €268,810 given away vs list (12.5% of
+his own revenue), €75,779 of it over policy, with 36% of his orders discounted past
+the threshold; DACH-South is the leakiest region at €615,918. The waterfall
+(gross list → within-policy → excess → net, `deliverables/leakage_waterfall.png`),
+a drill-down slide in the executive review, and a sortable offenders table in the
+web dashboard all report the same decomposition, which the tests force to sum back
+to the headline number exactly.
+
 ![Revenue history and 3-month forecast](deliverables/forecast.png)
 
 © 2026 Dimitres Kisimov — all rights reserved; published for portfolio review. See LICENSE. · Python 3.10–3.12 · stdlib core
@@ -40,10 +53,10 @@ no CDN (run `python scripts/build_web_data.py` first if you regenerated the data
 
 ## What comes out (`deliverables/`)
 
-- **`executive_review.pdf`** — the headline. An 8-slide Executive Business Review
+- **`executive_review.pdf`** — the headline. A 9-slide Executive Business Review
   (title, KPI scorecard, revenue+forecast, margin bridge, ABC-XYZ, expenditure,
-  RFM + at-risk callout, recommended actions). Also emits `executive_review.pptx`
-  if `python-pptx` is installed.
+  discount-leakage drill-down, RFM + at-risk callout, recommended actions). Also
+  emits `executive_review.pptx` if `python-pptx` is installed.
 - **`management_report.md`** — the same story as a written QBR.
 - **`kpi_workbook.xlsx`** — multi-sheet Excel (KPIs, mix, ABC-XYZ, RFM, forecasts,
   reorder list, spend).
@@ -51,6 +64,7 @@ no CDN (run `python scripts/build_web_data.py` first if you regenerated the data
   order quantities.
 - **`analysis.json`** — everything, machine-readable (also feeds the dashboard).
 - **`forecast.png`** — the chart above.
+- **`leakage_waterfall.png`** — the discount-leakage waterfall + per-region split.
 
 ## How the pieces fit
 
@@ -60,7 +74,7 @@ no CDN (run `python scripts/build_web_data.py` first if you regenerated the data
 | `metrics.py` | KPIs, growth, mix, ABC-XYZ, RFM, concentration, margin bridge |
 | `forecast.py` | 7 forecasters, MASE/RMSE/…, rolling-origin CV, model selection |
 | `inventory.py` | safety stock, reorder point, GMROI, reorder recommendations |
-| `spend.py` | COGS split, discount leakage, returns cost, cost-to-serve |
+| `spend.py` | COGS split, discount leakage + rep/region drill-down, returns cost, cost-to-serve |
 | `sqlq.py` | loads the data into in-memory SQLite for the SQL queries |
 | `report.py` | runs the pipeline and writes the deliverables |
 
