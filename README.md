@@ -9,13 +9,6 @@ polished executive review you could drop in front of a management team.
 
 ![Sales & Demand Analytics web dashboard — headline KPIs and the monthly revenue chart with 3-month forecast](docs/img/dashboard.png)
 
-The analytics core is **pure Python standard library** — `csv`, `sqlite3`,
-`statistics`, `json`. No pandas, no numpy. That was a deliberate constraint:
-partly to keep it dependency-light, partly because writing MASE, Croston's method
-and Holt-Winters from scratch forces you to actually understand them. `openpyxl`
-and `matplotlib` are the only third-party packages, and only for the Excel and
-chart/PDF outputs — everything else runs on a bare Python install.
-
 **Business case:** it turns a €21.8M-revenue distributor's 24 months of orders into
 the QBR decisions leadership actually acts on — including the **€2.6M/year discount
 leakage** the current process leaves unmanaged. See
@@ -34,6 +27,13 @@ the threshold; DACH-South is the leakiest region at €615,918. The waterfall
 a drill-down slide in the executive review, and a sortable offenders table in the
 web dashboard all report the same decomposition, which the tests force to sum back
 to the headline number exactly.
+
+The analytics core is **pure Python standard library** — `csv`, `sqlite3`,
+`statistics`, `json`. No pandas, no numpy. That was a deliberate constraint:
+partly to keep it dependency-light, partly because writing MASE, Croston's method
+and Holt-Winters from scratch forces you to actually understand them. `openpyxl`
+and `matplotlib` are the only third-party packages, and only for the Excel and
+chart/PDF outputs — everything else runs on a bare Python install.
 
 ![Revenue history and 3-month forecast](deliverables/forecast.png)
 
