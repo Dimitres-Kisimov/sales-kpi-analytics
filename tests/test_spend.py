@@ -34,6 +34,78 @@ def test_discount_leakage_positive_and_bounded(real_rows):
     assert 0 <= s["discount_leakage_pct"] <= 100
 
 
+def _leak_row(rep, region, units, price, discount):
+    """A minimal order row whose leakage is hand-computable: units*price*discount."""
+    gross = units * price
+    return {"sales_rep": rep, "region": region, "units": units, "list_price_eur": price,
+            "discount_pct": discount, "revenue_eur": round(gross * (1 - discount), 2),
+            "cost_eur": gross * 0.6}
+
+
+def test_drilldown_decomposition_sums_to_total_leakage(real_rows):
+    dd = spend.leakage_drilldown(real_rows)
+    total = spend.discount_leakage(real_rows)
+    assert abs(dd["total_leakage_eur"] - total) < 0.01
+    # by-rep and by-region decompositions must each sum back to the total
+    assert abs(sum(r["leakage_eur"] for r in dd["by_sales_rep"]) - total) < 1.0
+    assert abs(sum(r["leakage_eur"] for r in dd["by_region"]) - total) < 1.0
+    # and the policy split reconstructs it too
+    assert abs(dd["within_policy_discount_eur"] + dd["excess_discount_eur"] - total) < 0.01
+
+
+def test_drilldown_waterfall_segments_sum_to_gross(real_rows):
+    dd = spend.leakage_drilldown(real_rows)
+    walk = (dd["gross_list_value_eur"] - dd["within_policy_discount_eur"]
+            - dd["excess_discount_eur"])
+    assert abs(walk - dd["net_revenue_eur"]) < 0.01
+    # net in the waterfall is the same revenue the KPI layer reports
+    assert abs(dd["net_revenue_eur"] - sum(r["revenue_eur"] for r in real_rows)) < 0.01
+
+
+def test_drilldown_covers_whole_dataset_no_orphans(real_rows):
+    dd = spend.leakage_drilldown(real_rows)
+    assert sum(r["orders"] for r in dd["by_sales_rep"]) == len(real_rows)
+    assert sum(r["orders"] for r in dd["by_region"]) == len(real_rows)
+    assert {r["sales_rep"] for r in dd["by_sales_rep"]} == {r["sales_rep"] for r in real_rows}
+    assert {r["region"] for r in dd["by_region"]} == {r["region"] for r in real_rows}
+
+
+def test_drilldown_offender_ranking_hand_checked():
+    # 10 units x 10 EUR list each; policy 10%:
+    #   Deep   25% discount -> leakage 25, excess 25*(0.15/0.25) = 15
+    #   Mid    12% discount -> leakage 12, excess 12*(0.02/0.12) =  2
+    #   Clean   5% discount -> leakage  5, excess 0
+    rows = [_leak_row("Deep", "North", 10, 10.0, 0.25),
+            _leak_row("Mid", "South", 10, 10.0, 0.12),
+            _leak_row("Clean", "South", 10, 10.0, 0.05)]
+    dd = spend.leakage_drilldown(rows, policy_pct=0.10)
+    reps = [r["sales_rep"] for r in dd["by_sales_rep"]]
+    assert reps == ["Deep", "Mid", "Clean"]
+    top = dd["by_sales_rep"][0]
+    assert abs(top["leakage_eur"] - 25.0) < 0.01
+    assert abs(top["excess_eur"] - 15.0) < 0.01
+    assert abs(top["within_policy_eur"] - 10.0) < 0.01
+    assert top["orders_above_policy_pct"] == 100.0
+    assert dd["by_sales_rep"][2]["excess_eur"] == 0.0
+    assert abs(dd["total_leakage_eur"] - 42.0) < 0.01
+    # South region aggregates Mid + Clean
+    south = next(r for r in dd["by_region"] if r["region"] == "South")
+    assert abs(south["leakage_eur"] - 17.0) < 0.01
+    assert south["orders"] == 2
+
+
+def test_drilldown_deterministic(real_rows):
+    assert spend.leakage_drilldown(real_rows) == spend.leakage_drilldown(real_rows)
+
+
+def test_drilldown_policy_at_cap_means_zero_excess(real_rows):
+    # with the policy at 100% every discount is sanctioned: excess must vanish
+    dd = spend.leakage_drilldown(real_rows, policy_pct=1.0)
+    assert dd["excess_discount_eur"] == 0.0
+    assert abs(dd["within_policy_discount_eur"] - dd["total_leakage_eur"]) < 0.01
+    assert all(r["excess_eur"] == 0.0 for r in dd["by_sales_rep"])
+
+
 def test_cost_to_serve_is_sum_of_parts():
     rows = [
         {"channel": "e-shop", "product_category": "x", "region": "W", "units": 10,

@@ -25,6 +25,13 @@ from typing import Any
 
 Rows = list[dict[str, Any]]
 
+# Discount-policy threshold used by the leakage drill-down. The dataset carries no
+# explicit contract terms, so this is a stated modeling assumption, not a measured
+# fact: discounts up to 10% of list are treated as sanctioned ("within policy"),
+# anything above is "excess". The drill-down labels the split accordingly and the
+# threshold is a parameter everywhere, so a real policy can be dropped in.
+POLICY_DISCOUNT_PCT = 0.10
+
 
 def _list_value(r: dict[str, Any]) -> float:
     return r["units"] * r["list_price_eur"]
@@ -33,6 +40,109 @@ def _list_value(r: dict[str, Any]) -> float:
 def discount_leakage(rows: Rows) -> float:
     """Money given away versus list price (list value minus actual revenue)."""
     return sum(_list_value(r) - r["revenue_eur"] for r in rows)
+
+
+def _row_discount_pct(r: dict[str, Any]) -> float:
+    """The row's discount fraction — from the column when present, else derived."""
+    if "discount_pct" in r:
+        return float(r["discount_pct"])
+    lv = _list_value(r)
+    return (lv - r["revenue_eur"]) / lv if lv else 0.0
+
+
+def _split_leakage(r: dict[str, Any], policy_pct: float) -> tuple[float, float]:
+    """(row leakage, excess part of it). The row's leakage — list value minus
+    revenue, the exact same definition `discount_leakage()` uses — is split
+    proportionally by how far the discount sits above the policy threshold, so
+    within-policy + excess always reconstructs the row's leakage to the cent."""
+    leak = _list_value(r) - r["revenue_eur"]
+    d = _row_discount_pct(r)
+    if d > policy_pct and d > 0:
+        return leak, leak * (d - policy_pct) / d
+    return leak, 0.0
+
+
+def _percentile(sorted_vals: list[float], q: float) -> float:
+    if not sorted_vals:
+        return 0.0
+    idx = q * (len(sorted_vals) - 1)
+    lo = int(idx)
+    hi = min(lo + 1, len(sorted_vals) - 1)
+    return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * (idx - lo)
+
+
+def _leakage_by(rows: Rows, dim: str, policy_pct: float) -> list[dict[str, Any]]:
+    """Leakage decomposed along one dimension, ranked worst-offender-first
+    (by excess-over-policy EUR, ties broken by name for determinism)."""
+    groups: dict[str, Rows] = defaultdict(list)
+    for r in rows:
+        groups[r[dim]].append(r)
+    out = []
+    for key in sorted(groups):
+        grp = groups[key]
+        leak = excess = 0.0
+        discounts = []
+        above = 0
+        revenue = 0.0
+        for r in grp:
+            row_leak, row_excess = _split_leakage(r, policy_pct)
+            leak += row_leak
+            excess += row_excess
+            d = _row_discount_pct(r)
+            discounts.append(d)
+            if d > policy_pct:
+                above += 1
+            revenue += r["revenue_eur"]
+        discounts.sort()
+        rec = {
+            dim: key,
+            "leakage_eur": round(leak, 2),
+            "excess_eur": round(excess, 2),
+            "within_policy_eur": round(leak - excess, 2),
+            "revenue_eur": round(revenue, 2),
+            "leakage_pct_of_revenue": round(100 * leak / revenue, 2) if revenue else 0.0,
+            "orders": len(grp),
+            "orders_above_policy_pct": round(100 * above / len(grp), 2) if grp else 0.0,
+            "avg_discount_pct": round(100 * sum(discounts) / len(discounts), 2) if grp else 0.0,
+            "median_discount_pct": round(100 * _percentile(discounts, 0.5), 2),
+            "p90_discount_pct": round(100 * _percentile(discounts, 0.9), 2),
+        }
+        if dim == "sales_rep":
+            rec["region"] = " / ".join(sorted({r["region"] for r in grp}))
+        out.append(rec)
+    out.sort(key=lambda d: (-d["excess_eur"], d[dim]))
+    return out
+
+
+def leakage_drilldown(rows: Rows, policy_pct: float = POLICY_DISCOUNT_PCT) -> dict[str, Any]:
+    """WHO is leaking margin, and WHERE.
+
+    Decomposes the headline discount leakage (list value minus revenue — the same
+    number `discount_leakage()` reports) by sales rep and by region, and splits it
+    into a within-policy part and an excess part against `policy_pct`. The pieces
+    reconstruct the totals exactly:
+
+        within_policy + excess               == total leakage
+        gross list value - both discount cuts == net revenue
+        sum over reps == sum over regions    == total leakage
+    """
+    total_leak = discount_leakage(rows)
+    excess = sum(_split_leakage(r, policy_pct)[1] for r in rows)
+    gross = sum(_list_value(r) for r in rows)
+    net = sum(r["revenue_eur"] for r in rows)
+    return {
+        "policy_discount_pct": round(100 * policy_pct, 2),
+        "policy_note": ("assumed sanctioned-discount ceiling (no contract terms in the "
+                        "dataset); within-policy vs excess split depends on it, the "
+                        "total leakage does not"),
+        "gross_list_value_eur": round(gross, 2),
+        "within_policy_discount_eur": round(total_leak - excess, 2),
+        "excess_discount_eur": round(excess, 2),
+        "net_revenue_eur": round(net, 2),
+        "total_leakage_eur": round(total_leak, 2),
+        "by_sales_rep": _leakage_by(rows, "sales_rep", policy_pct),
+        "by_region": _leakage_by(rows, "region", policy_pct),
+    }
 
 
 def returns_cost(rows: Rows) -> float:
@@ -115,4 +225,5 @@ def spend_summary(rows: Rows) -> dict[str, Any]:
         "cogs_by_channel": spend_by(rows, "channel"),
         "returns_cost_by_category": returns_by_category,
         "cost_to_serve_by_channel": cost_to_serve_by_channel(rows),
+        "leakage_drilldown": leakage_drilldown(rows),
     }

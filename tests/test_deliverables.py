@@ -52,3 +52,19 @@ def test_optional_deliverables_when_libs_present(real_rows, tmp_path):
     if find_spec("matplotlib"):
         assert (tmp_path / "forecast.png").exists()
         assert "forecast.png" in made
+        # the leakage drill-down waterfall must be rebuilt and non-empty
+        wf = tmp_path / "leakage_waterfall.png"
+        assert wf.exists() and wf.stat().st_size > 0
+        assert "leakage_waterfall.png" in made
+
+
+def test_drilldown_reaches_report_and_json(real_rows, tmp_path):
+    a = analyze(real_rows)
+    dd = a["expenditure"]["leakage_drilldown"]
+    assert dd["by_sales_rep"] and dd["by_region"]
+    write_deliverables(a, outdir=tmp_path)
+    loaded = json.loads((tmp_path / "analysis.json").read_text(encoding="utf-8"))
+    assert "leakage_drilldown" in loaded["expenditure"]
+    md = (tmp_path / "management_report.md").read_text(encoding="utf-8")
+    assert "Discount-leakage drill-down" in md
+    assert dd["by_sales_rep"][0]["sales_rep"] in md

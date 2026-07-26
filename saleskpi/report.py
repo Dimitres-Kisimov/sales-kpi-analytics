@@ -72,7 +72,8 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
                 reorders.append({"region": reg, "category": cat, **rec})
     reorders.sort(key=lambda d: -d["recommended_order_qty"])
 
-    cards = _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc)
+    cards = _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc,
+                            expenditure)
     return {
         "kpi": kpi, "growth": grow, "regions": regions, "categories": categories,
         "channels": channels, "reps": reps, "abc_xyz": abcxyz,
@@ -86,8 +87,16 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     }
 
 
-def _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc) -> list[str]:
+def _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc,
+                    expenditure=None) -> list[str]:
     cards = []
+    dd = (expenditure or {}).get("leakage_drilldown")
+    if dd and dd.get("by_sales_rep"):
+        w = dd["by_sales_rep"][0]
+        cards.append(f"Discount drill-down: {w['sales_rep']} ({w['region']}) leads the leakage "
+                     f"table - {w['leakage_eur']:,.0f} EUR vs list, {w['excess_eur']:,.0f} EUR of "
+                     f"it above the {dd['policy_discount_pct']:.0f}% policy assumption - review "
+                     f"discount authority there first.")
     yoy = grow.get("yoy_pct")
     if yoy is not None:
         cards.append(f"Revenue is {'up' if yoy >= 0 else 'down'} {abs(yoy):.1f}% YoY; "
@@ -133,6 +142,9 @@ def write_deliverables(analysis: dict[str, Any], outdir: Path | None = None) -> 
     p = _write_chart(analysis, out)
     if p:
         made.append(p)
+    lw = _write_leakage_chart(analysis, out)
+    if lw:
+        made.append(lw)
     return made
 
 
@@ -203,6 +215,38 @@ def _write_markdown(a: dict, out: Path) -> str:
             lines.append(f"| {c['channel']} | {c['cogs_eur']:,.0f} | "
                          f"{c['returns_cost_eur']:,.0f} | {c['discount_leakage_eur']:,.0f} | "
                          f"{c['cost_to_serve_eur']:,.0f} |")
+        dd = sp.get("leakage_drilldown")
+        if dd:
+            lines += [
+                "", "### 7.1 Discount-leakage drill-down — who, where",
+                f"Waterfall: gross list value {dd['gross_list_value_eur']:,.0f} EUR "
+                f"− within-policy discounts {dd['within_policy_discount_eur']:,.0f} EUR "
+                f"− excess discounts {dd['excess_discount_eur']:,.0f} EUR "
+                f"= net revenue {dd['net_revenue_eur']:,.0f} EUR. "
+                f"Both discount cuts together are the {dd['total_leakage_eur']:,.0f} EUR leakage.",
+                "",
+                f"*Policy threshold: {dd['policy_discount_pct']:.0f}% of list — "
+                f"{dd['policy_note']}.*",
+                "",
+                "Top 5 reps by excess-over-policy (see `leakage_waterfall.png`):",
+                "",
+                "| Rep | Region | Leakage | Excess >policy | % of own revenue | "
+                "Orders >policy | Median / p90 discount |",
+                "|---|---|--:|--:|--:|--:|--:|",
+            ]
+            for r in dd["by_sales_rep"][:5]:
+                lines.append(
+                    f"| {r['sales_rep']} | {r['region']} | {r['leakage_eur']:,.0f} | "
+                    f"{r['excess_eur']:,.0f} | {r['leakage_pct_of_revenue']:.1f}% | "
+                    f"{r['orders_above_policy_pct']:.0f}% | "
+                    f"{r['median_discount_pct']:.1f}% / {r['p90_discount_pct']:.1f}% |")
+            lines += ["", "| Region | Leakage | Excess >policy | % of region revenue | "
+                          "Orders >policy |", "|---|--:|--:|--:|--:|"]
+            for r in dd["by_region"]:
+                lines.append(
+                    f"| {r['region']} | {r['leakage_eur']:,.0f} | {r['excess_eur']:,.0f} | "
+                    f"{r['leakage_pct_of_revenue']:.1f}% | "
+                    f"{r['orders_above_policy_pct']:.0f}% |")
     (out / "management_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return "management_report.md"
 
@@ -254,6 +298,23 @@ def _write_xlsx(a: dict, out: Path) -> str | None:
         s.append(["Discount leakage EUR", sp["discount_leakage_eur"]])
         s.append(["Discount leakage %", sp["discount_leakage_pct"]])
         s.append(["Returns cost total", sp["returns_cost_total_eur"]])
+        dd = sp.get("leakage_drilldown")
+        if dd:
+            sheet("Leakage drill-down", dd["by_sales_rep"],
+                  ["sales_rep", "region", "leakage_eur", "excess_eur", "within_policy_eur",
+                   "leakage_pct_of_revenue", "orders", "orders_above_policy_pct",
+                   "median_discount_pct", "p90_discount_pct"])
+            s = wb["Leakage drill-down"]
+            s.append([])
+            s.append(["By region"])
+            s.append(["region", "leakage_eur", "excess_eur", "leakage_pct_of_revenue",
+                      "orders_above_policy_pct"])
+            for r in dd["by_region"]:
+                s.append([r["region"], r["leakage_eur"], r["excess_eur"],
+                          r["leakage_pct_of_revenue"], r["orders_above_policy_pct"]])
+            s.append([])
+            s.append(["Policy threshold %", dd["policy_discount_pct"]])
+            s.append(["Note", dd["policy_note"]])
     wb.save(out / "kpi_workbook.xlsx")
     return "kpi_workbook.xlsx"
 
@@ -286,3 +347,66 @@ def _write_chart(a: dict, out: Path) -> str | None:
     fig.savefig(out / "forecast.png", dpi=140)
     plt.close(fig)
     return "forecast.png"
+
+
+def _write_leakage_chart(a: dict, out: Path) -> str | None:
+    """Discount-leakage waterfall (gross -> within-policy -> excess -> net) plus
+    the per-region leakage split. Same decomposition the drill-down reports."""
+    dd = (a.get("expenditure") or {}).get("leakage_drilldown")
+    if not dd:
+        return None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return None
+    ink, blue, pink, mute = "#1a1f2b", "#2f6bff", "#ea4b71", "#8b8f99"
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(12, 4.4), width_ratios=[3, 2])
+
+    gross = dd["gross_list_value_eur"] / 1e6
+    within = dd["within_policy_discount_eur"] / 1e6
+    excess = dd["excess_discount_eur"] / 1e6
+    net = dd["net_revenue_eur"] / 1e6
+    labels = ["Gross\nlist value", "Within-policy\ndiscounts", "Excess\ndiscounts", "Net\nrevenue"]
+    # totals sit on the baseline; the two discount cuts float between running totals
+    bars = [(0.0, gross, mute), (gross - within, within, blue),
+            (net, excess, pink), (0.0, net, mute)]
+    for i, (bottom, height, color) in enumerate(bars):
+        ax.bar(i, height, bottom=bottom, color=color, width=0.62,
+               edgecolor="white", linewidth=1.5)
+        val = [gross, -within, -excess, net][i]
+        ax.annotate(f"{val:+,.2f}M" if 0 < i < 3 else f"{val:,.2f}M",
+                    (i, bottom + height), textcoords="offset points", xytext=(0, 5),
+                    ha="center", fontsize=9.5, color=ink)
+    # connectors between running totals
+    for i, lvl in enumerate([gross, gross - within, net]):
+        ax.plot([i + 0.31, i + 1 - 0.31], [lvl, lvl], color=mute, lw=1, ls=":")
+    ax.set_xticks(range(4))
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.set_ylabel("EUR (millions)")
+    ax.set_title(f"Discount leakage {dd['total_leakage_eur'] / 1e6:,.2f}M EUR = "
+                 f"both discount cuts vs list", fontsize=11)
+    ax.grid(axis="y", alpha=0.3)
+    ax.set_axisbelow(True)
+
+    regs = dd["by_region"]
+    names = [r["region"] for r in regs][::-1]
+    wp = [r["within_policy_eur"] / 1e6 for r in regs][::-1]
+    ex = [r["excess_eur"] / 1e6 for r in regs][::-1]
+    ax2.barh(names, wp, color=blue, label="within policy", edgecolor="white", linewidth=1)
+    ax2.barh(names, ex, left=wp, color=pink, label="excess", edgecolor="white", linewidth=1)
+    for i, r in enumerate(regs[::-1]):
+        ax2.text(wp[i] + ex[i], i, f" {r['leakage_eur'] / 1e6:,.2f}M",
+                 va="center", fontsize=9, color=ink)
+    ax2.set_xlim(0, max(w + e for w, e in zip(wp, ex, strict=False)) * 1.22)
+    ax2.set_xlabel("EUR (millions)")
+    ax2.set_title(f"Leakage by region (policy = {dd['policy_discount_pct']:.0f}% of list, "
+                  f"assumed)", fontsize=11)
+    ax2.legend(fontsize=8, frameon=False, loc="lower right")
+    ax2.grid(axis="x", alpha=0.3)
+    ax2.set_axisbelow(True)
+    fig.tight_layout()
+    fig.savefig(out / "leakage_waterfall.png", dpi=140)
+    plt.close(fig)
+    return "leakage_waterfall.png"
