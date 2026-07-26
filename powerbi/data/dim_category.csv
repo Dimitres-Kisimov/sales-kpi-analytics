@@ -1,0 +1,7 @@
+product_category,abc,xyz,abc_xyz_class,demand_cv,revenue_share_pct
+abrasives,C,X,CX,0.247,0.91
+chemicals,C,X,CX,0.186,5.32
+fasteners,C,X,CX,0.165,1.21
+hand tools,B,X,BX,0.284,12.7
+power tools,A,X,AX,0.225,77.06
+ppe,C,X,CX,0.199,2.8
