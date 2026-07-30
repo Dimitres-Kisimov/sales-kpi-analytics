@@ -35,6 +35,19 @@ def main(argv: list[str] | None = None) -> int:
         for r in run_file(con, "otif_by_channel.sql"):
             print(f"  {r['channel']:12s} OTIF {r['otif_pct']:>5.1f}%  "
                   f"on-time {r['on_time_pct']:>5.1f}%  fill {r['fill_rate_pct']:>5.1f}%")
+        policy = {"policy_pct": 0.10}
+        w = run_file(con, "leakage_waterfall.sql", policy)[0]
+        print("# leakage_waterfall.sql (policy = 10% of list, assumed)")
+        print(f"  gross {w['gross_list_value_eur']:>14,.0f}  "
+              f"- within {w['within_policy_discount_eur']:>12,.0f}  "
+              f"- excess {w['excess_discount_eur']:>12,.0f}  "
+              f"= net {w['net_revenue_eur']:>14,.0f}  "
+              f"(leakage {w['total_leakage_eur']:,.0f} EUR)")
+        print("# leakage_by_rep.sql — top 5 by excess over policy")
+        for r in run_file(con, "leakage_by_rep.sql", policy)[:5]:
+            print(f"  {r['sales_rep']:12s} leakage {r['leakage_eur']:>12,.0f}  "
+                  f"excess {r['excess_eur']:>10,.0f}  "
+                  f"orders>policy {r['orders_above_policy_pct']:>5.1f}%")
         return 0
 
     analysis = analyze()

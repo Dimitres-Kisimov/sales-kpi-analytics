@@ -23,10 +23,20 @@ rep and by region, with each rep's discount distribution held against an *assume
 Measured top offender: **Berg (Nordics)** — €268,810 given away vs list (12.5% of
 his own revenue), €75,779 of it over policy, with 36% of his orders discounted past
 the threshold; DACH-South is the leakiest region at €615,918. The waterfall
-(gross list → within-policy → excess → net, `deliverables/leakage_waterfall.png`),
-a drill-down slide in the executive review, and a sortable offenders table in the
-web dashboard all report the same decomposition, which the tests force to sum back
-to the headline number exactly.
+(gross list → within-policy → excess → net) is rendered three ways from one shared
+model — a matplotlib PNG and a stdlib offline SVG (`deliverables/leakage_waterfall.{png,svg}`),
+plus a sortable offenders table in the web dashboard — alongside a drill-down slide
+in the executive review. A test reads the euro labels back off the rendered SVG and
+asserts they equal the computed leakage to the cent, and the whole decomposition is
+forced to sum back to the headline number exactly.
+
+The same drill-down is also expressed as **parameterized SQL views**
+([`sql/`](sql/README.md)): `leakage_by_rep.sql`, `leakage_by_region.sql` and
+`leakage_waterfall.sql` take a `:policy_pct` parameter and run against the in-memory
+SQLite table, with cross-check tests asserting they equal the Python engine to the
+cent. And [`docs/QUESTIONS_THIS_ANSWERS.md`](docs/QUESTIONS_THIS_ANSWERS.md) maps
+15 concrete business questions to the exact metric or view that answers each, with
+an honest note on every assumption.
 
 The analytics core is **pure Python standard library** — `csv`, `sqlite3`,
 `statistics`, `json`. No pandas, no numpy. That was a deliberate constraint:
@@ -49,7 +59,8 @@ python scripts/make_presentation.py     # builds the executive review PDF/PPTX
 
 Then open `web/index.html` in a browser — the dashboard is offline, no server,
 no CDN (run `python scripts/build_web_data.py` first if you regenerated the data).
-`python -m saleskpi --sql` runs the SQL side.
+`python -m saleskpi --sql` runs the SQL side, including the parameterized
+discount-leakage views (see [`sql/`](sql/README.md)).
 
 ## What comes out (`deliverables/`)
 
@@ -65,6 +76,9 @@ no CDN (run `python scripts/build_web_data.py` first if you regenerated the data
 - **`analysis.json`** — everything, machine-readable (also feeds the dashboard).
 - **`forecast.png`** — the chart above.
 - **`leakage_waterfall.png`** — the discount-leakage waterfall + per-region split.
+- **`leakage_waterfall.svg`** — the same waterfall as a self-contained offline SVG
+  (stdlib-only, no matplotlib); its euro labels are asserted equal to the computed
+  leakage numbers in the tests, so the picture can never drift from the source.
 
 ## How the pieces fit
 

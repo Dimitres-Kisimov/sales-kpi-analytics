@@ -145,6 +145,50 @@ def leakage_drilldown(rows: Rows, policy_pct: float = POLICY_DISCOUNT_PCT) -> di
     }
 
 
+def waterfall_steps(dd: dict[str, Any]) -> list[dict[str, Any]]:
+    """The exact ordered bars a discount-leakage waterfall draws, built from a
+    drill-down dict (`leakage_drilldown`). This is the single source of truth the
+    matplotlib PNG, the offline SVG and the tests all consume, so "what's on
+    screen" can never diverge from the computed numbers.
+
+    Each step carries the signed value shown as its label (`value`) and the bar
+    geometry (`bottom`, `height`). Totals sit on the baseline; the two discount
+    cuts float between the running totals, so:
+
+        gross - within - excess == net   and   within + excess == total leakage
+    """
+    gross = dd["gross_list_value_eur"]
+    within = dd["within_policy_discount_eur"]
+    excess = dd["excess_discount_eur"]
+    net = dd["net_revenue_eur"]
+    return [
+        {"label": "Gross list value", "kind": "total",
+         "value": gross, "bottom": 0.0, "height": gross},
+        {"label": "Within-policy discounts", "kind": "decrease",
+         "value": -within, "bottom": gross - within, "height": within},
+        {"label": "Excess discounts", "kind": "decrease",
+         "value": -excess, "bottom": net, "height": excess},
+        {"label": "Net revenue", "kind": "total",
+         "value": net, "bottom": 0.0, "height": net},
+    ]
+
+
+def waterfall(rows: Rows, policy_pct: float = POLICY_DISCOUNT_PCT) -> dict[str, Any]:
+    """The discount-leakage waterfall as a self-contained, renderable model:
+    the ordered bars plus the headline totals, all straight from the same
+    computation `discount_leakage()` / `leakage_drilldown()` report."""
+    dd = leakage_drilldown(rows, policy_pct)
+    return {
+        "steps": waterfall_steps(dd),
+        "gross_list_value_eur": dd["gross_list_value_eur"],
+        "within_policy_discount_eur": dd["within_policy_discount_eur"],
+        "excess_discount_eur": dd["excess_discount_eur"],
+        "net_revenue_eur": dd["net_revenue_eur"],
+        "total_leakage_eur": dd["total_leakage_eur"],
+        "policy_discount_pct": dd["policy_discount_pct"],
+    }
+
+
 def returns_cost(rows: Rows) -> float:
     """Modeled returns cost for a set of orders: returns_rate x avg order cost x orders."""
     n = len(rows)

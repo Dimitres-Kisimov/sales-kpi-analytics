@@ -23,7 +23,7 @@ from . import metrics
 from .dataset import load, monthly_series
 from .forecast import select_and_forecast
 from .inventory import reorder_recommendation
-from .spend import spend_summary
+from .spend import spend_summary, waterfall_steps
 
 OUT = Path(__file__).resolve().parents[1] / "deliverables"
 LEAD_MONTHS = 1.0          # modeling assumption: ~1 month supplier replenishment lead
@@ -142,6 +142,9 @@ def write_deliverables(analysis: dict[str, Any], outdir: Path | None = None) -> 
     p = _write_chart(analysis, out)
     if p:
         made.append(p)
+    lsvg = _write_leakage_svg(analysis, out)
+    if lsvg:
+        made.append(lsvg)
     lw = _write_leakage_chart(analysis, out)
     if lw:
         made.append(lw)
@@ -349,6 +352,92 @@ def _write_chart(a: dict, out: Path) -> str | None:
     return "forecast.png"
 
 
+def _svg_esc(s: str) -> str:
+    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def render_leakage_svg(dd: dict[str, Any]) -> str:
+    """The discount-leakage waterfall as a self-contained, offline SVG string —
+    no server, no CDN, no external asset references, pure stdlib.
+
+    The bar geometry and every on-screen number come from `waterfall_steps(dd)`,
+    the same model the PNG uses and the tests assert against, so the figure is a
+    faithful picture of the computed leakage — never a cosmetic one. Value labels
+    are the exact euro amounts (to the cent) so the rendering can be reconciled to
+    source in a test.
+    """
+    steps = waterfall_steps(dd)
+    colors = ["#8b8f99", "#2a78d6", "#e34948", "#8b8f99"]   # totals, within, excess, totals
+    W, H = 920, 340
+    m = {"t": 46, "r": 24, "b": 58, "l": 92}
+    iw, ih = W - m["l"] - m["r"], H - m["t"] - m["b"]
+    top = dd["gross_list_value_eur"] * 1.06 or 1.0
+
+    def y(v: float) -> float:
+        return m["t"] + ih - v / top * ih
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
+        f'role="img" aria-label="Discount-leakage waterfall from gross list value '
+        f'through within-policy and excess discounts to net revenue" '
+        f'font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">',
+        f'<rect x="0" y="0" width="{W}" height="{H}" fill="#fcfcfb"/>',
+        f'<text x="{m["l"]}" y="26" font-size="15" font-weight="700" fill="#0b0b0b">'
+        f'Discount-leakage waterfall &#8212; &#8364;{dd["total_leakage_eur"]:,.2f} '
+        f'given away vs list</text>',
+    ]
+    # horizontal gridlines + y-axis ticks (euro, millions for the axis only)
+    for t in range(5):
+        val = top * t / 4
+        yy = y(val)
+        parts.append(f'<line x1="{m["l"]}" y1="{yy:.1f}" x2="{W - m["r"]}" y2="{yy:.1f}" '
+                     f'stroke="#e1e0d9" stroke-width="1"/>')
+        parts.append(f'<text x="{m["l"] - 8}" y="{yy + 3:.1f}" text-anchor="end" '
+                     f'font-size="11" fill="#898781">&#8364;{val / 1e6:,.1f}M</text>')
+
+    slot = iw / 4
+    bw = 118
+    running = [dd["gross_list_value_eur"], dd["gross_list_value_eur"]
+               - dd["within_policy_discount_eur"], dd["net_revenue_eur"]]
+    for i, (step, color) in enumerate(zip(steps, colors, strict=True)):
+        cx = m["l"] + slot * (i + 0.5)
+        y_top, y_bot = y(step["bottom"] + step["height"]), y(step["bottom"])
+        parts.append(f'<rect x="{cx - bw / 2:.1f}" y="{y_top:.1f}" width="{bw}" '
+                     f'height="{max(2.0, y_bot - y_top):.1f}" fill="{color}" rx="4"/>')
+        signed = step["value"]
+        lab = (f'&#8722;&#8364;{abs(signed):,.2f}' if step["kind"] == "decrease"
+               else f'&#8364;{signed:,.2f}')
+        parts.append(f'<text x="{cx:.1f}" y="{y_top - 8:.1f}" text-anchor="middle" '
+                     f'font-size="12" font-weight="650" fill="#0b0b0b">{lab}</text>')
+        for j, line in enumerate(step["label"].split(" ", 1) if " " in step["label"]
+                                 else [step["label"]]):
+            parts.append(f'<text x="{cx:.1f}" y="{H - 32 + j * 14}" text-anchor="middle" '
+                         f'font-size="11" fill="#52514e">{_svg_esc(line)}</text>')
+    # dotted connectors at the running totals
+    for i, lvl in enumerate(running):
+        x1 = m["l"] + slot * (i + 0.5) + bw / 2
+        x2 = m["l"] + slot * (i + 1.5) - bw / 2
+        parts.append(f'<line x1="{x1:.1f}" y1="{y(lvl):.1f}" x2="{x2:.1f}" y2="{y(lvl):.1f}" '
+                     f'stroke="#898781" stroke-width="1" stroke-dasharray="3 4"/>')
+    parts.append(
+        f'<text x="{m["l"]}" y="{H - 8}" font-size="11" fill="#898781">'
+        f'Policy threshold {dd["policy_discount_pct"]:.0f}% of list (assumed) &#183; '
+        f'within-policy &#8364;{dd["within_policy_discount_eur"]:,.2f} + excess '
+        f'&#8364;{dd["excess_discount_eur"]:,.2f} = &#8364;{dd["total_leakage_eur"]:,.2f} '
+        f'leakage</text>')
+    parts.append("</svg>")
+    return "\n".join(parts) + "\n"
+
+
+def _write_leakage_svg(a: dict, out: Path) -> str | None:
+    """Offline SVG waterfall (stdlib only — always produced, no matplotlib needed)."""
+    dd = (a.get("expenditure") or {}).get("leakage_drilldown")
+    if not dd:
+        return None
+    (out / "leakage_waterfall.svg").write_text(render_leakage_svg(dd), encoding="utf-8")
+    return "leakage_waterfall.svg"
+
+
 def _write_leakage_chart(a: dict, out: Path) -> str | None:
     """Discount-leakage waterfall (gross -> within-policy -> excess -> net) plus
     the per-region leakage split. Same decomposition the drill-down reports."""
@@ -364,19 +453,20 @@ def _write_leakage_chart(a: dict, out: Path) -> str | None:
     ink, blue, pink, mute = "#1a1f2b", "#2f6bff", "#ea4b71", "#8b8f99"
     fig, (ax, ax2) = plt.subplots(1, 2, figsize=(12, 4.4), width_ratios=[3, 2])
 
-    gross = dd["gross_list_value_eur"] / 1e6
     within = dd["within_policy_discount_eur"] / 1e6
-    excess = dd["excess_discount_eur"] / 1e6
+    gross = dd["gross_list_value_eur"] / 1e6
     net = dd["net_revenue_eur"] / 1e6
     labels = ["Gross\nlist value", "Within-policy\ndiscounts", "Excess\ndiscounts", "Net\nrevenue"]
-    # totals sit on the baseline; the two discount cuts float between running totals
-    bars = [(0.0, gross, mute), (gross - within, within, blue),
-            (net, excess, pink), (0.0, net, mute)]
-    for i, (bottom, height, color) in enumerate(bars):
+    # bars come straight from the shared waterfall model — the PNG cannot diverge
+    # from the SVG or the tested numbers. Totals sit on the baseline; the two
+    # discount cuts float between the running totals.
+    colors = [mute, blue, pink, mute]
+    for i, (step, color) in enumerate(zip(waterfall_steps(dd), colors, strict=True)):
+        bottom, height = step["bottom"] / 1e6, step["height"] / 1e6
         ax.bar(i, height, bottom=bottom, color=color, width=0.62,
                edgecolor="white", linewidth=1.5)
-        val = [gross, -within, -excess, net][i]
-        ax.annotate(f"{val:+,.2f}M" if 0 < i < 3 else f"{val:,.2f}M",
+        val = step["value"] / 1e6
+        ax.annotate(f"{val:+,.2f}M" if step["kind"] == "decrease" else f"{val:,.2f}M",
                     (i, bottom + height), textcoords="offset points", xytext=(0, 5),
                     ha="center", fontsize=9.5, color=ink)
     # connectors between running totals

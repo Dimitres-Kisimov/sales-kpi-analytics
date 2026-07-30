@@ -42,9 +42,13 @@ def _sqltype(col: str) -> str:
     return "TEXT"
 
 
-def run(con: sqlite3.Connection, sql: str) -> list[dict]:
-    return [dict(r) for r in con.execute(sql).fetchall()]
+def run(con: sqlite3.Connection, sql: str, params: dict | None = None) -> list[dict]:
+    cur = con.execute(sql, params) if params is not None else con.execute(sql)
+    return [dict(r) for r in cur.fetchall()]
 
 
-def run_file(con: sqlite3.Connection, name: str) -> list[dict]:
-    return run(con, (_SQL / name).read_text(encoding="utf-8"))
+def run_file(con: sqlite3.Connection, name: str, params: dict | None = None) -> list[dict]:
+    """Run a .sql file. Parameterized views (e.g. the leakage layer) take named
+    parameters — pass them as a dict, e.g. run_file(con, "leakage_by_rep.sql",
+    {"policy_pct": 0.10})."""
+    return run(con, (_SQL / name).read_text(encoding="utf-8"), params)

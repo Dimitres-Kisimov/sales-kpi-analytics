@@ -9,6 +9,6 @@ deliverables (Excel workbook, QBR report, reorder list, forecast chart).
     a = analyze()
     write_deliverables(a)
 
-Author: Dimitres Kisimov · MIT.
+Author: Dimitres Kisimov. (c) 2026 — all rights reserved; see LICENSE.
 """
 __version__ = "0.1.0"
