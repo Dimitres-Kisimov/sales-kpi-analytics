@@ -375,6 +375,96 @@
     "volume_effect_eur": 178051.58,
     "mix_effect_eur": -0.0
   },
+  "revenue_bridge": {
+    "available": true,
+    "dimension": "product_category",
+    "period_prior": "2024-01..2024-12",
+    "period_current": "2025-01..2025-12",
+    "prior_revenue_eur": 10556343.37,
+    "current_revenue_eur": 11278750.47,
+    "total_change_eur": 722407.1,
+    "total_change_pct": 6.84,
+    "price_effect_eur": 16048.25,
+    "volume_effect_eur": 1381732.23,
+    "mix_effect_eur": -675373.38,
+    "prior_units": 548150,
+    "current_units": 619898,
+    "volume_growth_pct": 13.09,
+    "by_category": [
+      {
+        "product_category": "power tools",
+        "prior_units": 63916,
+        "current_units": 66909,
+        "prior_price_eur": 128.4457,
+        "current_price_eur": 128.7716,
+        "prior_revenue_eur": 8209735.59,
+        "current_revenue_eur": 8615979.77,
+        "price_effect_eur": 21806.19,
+        "volume_effect_eur": 1074581.97,
+        "mix_effect_eur": -690143.98
+      },
+      {
+        "product_category": "hand tools",
+        "prior_units": 59940,
+        "current_units": 66309,
+        "prior_price_eur": 21.9601,
+        "current_price_eur": 21.9668,
+        "prior_revenue_eur": 1316286.22,
+        "current_revenue_eur": 1456599.09,
+        "price_effect_eur": 449.22,
+        "volume_effect_eur": 172290.26,
+        "mix_effect_eur": -32426.61
+      },
+      {
+        "product_category": "chemicals",
+        "prior_units": 88469,
+        "current_units": 107194,
+        "prior_price_eur": 5.9495,
+        "current_price_eur": 5.9224,
+        "prior_revenue_eur": 526343.62,
+        "current_revenue_eur": 634846.49,
+        "price_effect_eur": -2900.95,
+        "volume_effect_eur": 68893.74,
+        "mix_effect_eur": 42510.08
+      },
+      {
+        "product_category": "ppe",
+        "prior_units": 90744,
+        "current_units": 104792,
+        "prior_price_eur": 3.1424,
+        "current_price_eur": 3.1102,
+        "prior_revenue_eur": 285150.32,
+        "current_revenue_eur": 325919.53,
+        "price_effect_eur": -3374.66,
+        "volume_effect_eur": 37323.66,
+        "mix_effect_eur": 6820.21
+      },
+      {
+        "product_category": "fasteners",
+        "prior_units": 151866,
+        "current_units": 169831,
+        "prior_price_eur": 0.825,
+        "current_price_eur": 0.8214,
+        "prior_revenue_eur": 125287.04,
+        "current_revenue_eur": 139497.92,
+        "price_effect_eur": -609.96,
+        "volume_effect_eur": 16398.97,
+        "mix_effect_eur": -1578.13
+      },
+      {
+        "product_category": "abrasives",
+        "prior_units": 93215,
+        "current_units": 104863,
+        "prior_price_eur": 1.0035,
+        "current_price_eur": 1.01,
+        "prior_revenue_eur": 93540.58,
+        "current_revenue_eur": 105907.67,
+        "price_effect_eur": 678.41,
+        "volume_effect_eur": 12243.64,
+        "mix_effect_eur": -554.95
+      }
+    ]
+  },
   "concentration": {
     "customers": 395,
     "top_pct": 0.2,
@@ -1491,6 +1581,7 @@
     }
   ],
   "decision_cards": [
+    "Revenue bridge (YoY): Revenue rose \u20ac722,407 year-on-year: price +\u20ac16,048, volume +\u20ac1,381,732, mix \u2212\u20ac675,373. Volume was the biggest tailwind (+1,381,732 EUR); mix the biggest drag (-675,373 EUR).",
     "Discount drill-down: Berg (Nordics) leads the leakage table - 268,810 EUR vs list, 75,779 EUR of it above the 10% policy assumption - review discount authority there first.",
     "Revenue is up 6.8% YoY; gross margin sits at 22.0%.",
     "Margin bridge: volume added 178,052 EUR while mix cost 0 EUR - steer commercial focus accordingly.",

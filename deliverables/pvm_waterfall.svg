@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 380" role="img" aria-label="Revenue price-volume-mix bridge from prior-year revenue through price, volume and mix effects to current-year revenue" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+<rect x="0" y="0" width="940" height="380" fill="#fcfcfb"/>
+<text x="96" y="26" font-size="15" font-weight="700" fill="#0b0b0b">Revenue bridge (YoY) &#8212; price / volume / mix</text>
+<text x="96" y="44" font-size="12" fill="#52514e">Total change +&#8364;722,407.10 (+6.8%) &#183; 2024-01..2024-12 &#8594; 2025-01..2025-12</text>
+<line x1="96" y1="316.0" x2="916" y2="316.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="88" y="319.0" text-anchor="end" font-size="11" fill="#898781">&#8364;10.4M</text>
+<line x1="96" y1="250.0" x2="916" y2="250.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="88" y="253.0" text-anchor="end" font-size="11" fill="#898781">&#8364;10.8M</text>
+<line x1="96" y1="184.0" x2="916" y2="184.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="88" y="187.0" text-anchor="end" font-size="11" fill="#898781">&#8364;11.3M</text>
+<line x1="96" y1="118.0" x2="916" y2="118.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="88" y="121.0" text-anchor="end" font-size="11" fill="#898781">&#8364;11.8M</text>
+<line x1="96" y1="52.0" x2="916" y2="52.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="88" y="55.0" text-anchor="end" font-size="11" fill="#898781">&#8364;12.2M</text>
+<rect x="124.0" y="288.4" width="108" height="27.6" fill="#8b8f99" rx="4"/>
+<text x="178.0" y="280.4" text-anchor="middle" font-size="11.5" font-weight="650" fill="#0b0b0b">&#8364;10,556,343.37</text>
+<text x="178.0" y="354" text-anchor="middle" font-size="11" fill="#52514e">Prior revenue</text>
+<rect x="288.0" y="286.2" width="108" height="2.3" fill="#2f9e6f" rx="4"/>
+<text x="342.0" y="278.2" text-anchor="middle" font-size="11.5" font-weight="650" fill="#0b0b0b">+&#8364;16,048.25</text>
+<text x="342.0" y="354" text-anchor="middle" font-size="11" fill="#52514e">Price</text>
+<rect x="452.0" y="91.4" width="108" height="194.8" fill="#2f9e6f" rx="4"/>
+<text x="506.0" y="83.4" text-anchor="middle" font-size="11.5" font-weight="650" fill="#0b0b0b">+&#8364;1,381,732.23</text>
+<text x="506.0" y="354" text-anchor="middle" font-size="11" fill="#52514e">Volume</text>
+<rect x="616.0" y="91.4" width="108" height="95.2" fill="#e34948" rx="4"/>
+<text x="670.0" y="83.4" text-anchor="middle" font-size="11.5" font-weight="650" fill="#0b0b0b">&#8722;&#8364;675,373.38</text>
+<text x="670.0" y="354" text-anchor="middle" font-size="11" fill="#52514e">Mix</text>
+<rect x="780.0" y="186.6" width="108" height="129.4" fill="#8b8f99" rx="4"/>
+<text x="834.0" y="178.6" text-anchor="middle" font-size="11.5" font-weight="650" fill="#0b0b0b">&#8364;11,278,750.47</text>
+<text x="834.0" y="354" text-anchor="middle" font-size="11" fill="#52514e">Current revenue</text>
+<line x1="232.0" y1="288.4" x2="288.0" y2="288.4" stroke="#898781" stroke-width="1" stroke-dasharray="3 4"/>
+<line x1="396.0" y1="286.2" x2="452.0" y2="286.2" stroke="#898781" stroke-width="1" stroke-dasharray="3 4"/>
+<line x1="560.0" y1="91.4" x2="616.0" y2="91.4" stroke="#898781" stroke-width="1" stroke-dasharray="3 4"/>
+<line x1="724.0" y1="186.6" x2="780.0" y2="186.6" stroke="#898781" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="96" y="372" font-size="11" fill="#898781">Realised price = revenue &#247; units per category &#183; volume = proportional growth at the prior blended price &#183; mix = residual reallocation &#183; y-axis zoomed to the delta band (synthetic data)</text>
+</svg>

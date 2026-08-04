@@ -3,9 +3,10 @@
 I wanted a portfolio piece that looked like the actual work a distributor's
 data/BI team does — not a Kaggle notebook. So this takes 24 months of B2B
 wholesale order data and turns it into the things leadership actually asks for:
-KPIs, a margin bridge, an ABC-XYZ portfolio view, RFM customer segments, a demand
-forecast that's been validated out-of-sample, a replenishment buy-list, and a
-polished executive review you could drop in front of a management team.
+KPIs, revenue and margin price/volume/mix bridges, an ABC-XYZ portfolio view, RFM
+customer segments, a demand forecast that's been validated out-of-sample, a
+replenishment buy-list, and a polished executive review you could drop in front of
+a management team.
 
 ![Sales & Demand Analytics web dashboard — headline KPIs and the monthly revenue chart with 3-month forecast](docs/img/dashboard.png)
 
@@ -79,6 +80,12 @@ discount-leakage views (see [`sql/`](sql/README.md)).
 - **`leakage_waterfall.svg`** — the same waterfall as a self-contained offline SVG
   (stdlib-only, no matplotlib); its euro labels are asserted equal to the computed
   leakage numbers in the tests, so the picture can never drift from the source.
+- **`pvm_bridge.csv`** + **`pvm_waterfall.svg`** (and `.png`) — the **revenue
+  price-volume-mix bridge**: the YoY revenue change decomposed into price, volume
+  and mix effects that sum *exactly* to the total (per-category CSV with a TOTAL
+  row that ties out, plus an offline SVG waterfall whose euro labels are asserted
+  equal to the source). Distinct from the margin bridge below — revenue teams and
+  margin teams ask different questions.
 
 ## How the pieces fit
 
@@ -86,6 +93,7 @@ discount-leakage views (see [`sql/`](sql/README.md)).
 |---|---|
 | `dataset.py` | typed CSV load + monthly-series / group-by helpers |
 | `metrics.py` | KPIs, growth, mix, ABC-XYZ, RFM, concentration, margin bridge |
+| `pvm.py` | revenue price/volume/mix bridge (YoY), per-category, reconciling to the cent |
 | `forecast.py` | 7 forecasters, MASE/RMSE/…, rolling-origin CV, model selection |
 | `inventory.py` | safety stock, reorder point, GMROI, reorder recommendations |
 | `spend.py` | COGS split, discount leakage + rep/region drill-down, returns cost, cost-to-serve |
@@ -107,6 +115,14 @@ and there's a full QBR walkthrough in [docs/USE_CASE.md](docs/USE_CASE.md).
   exactly to the total change (so `price + volume + mix == total`, which a test
   now enforces) took a couple of tries — the mix term has to be the residual or
   the numbers don't tie out.
+- **There are now two bridges, and they're not the same.** The margin bridge
+  decomposes the YoY *margin* change; the newer **revenue bridge** (`saleskpi.pvm`)
+  decomposes the YoY *revenue* change and splits the quantity effect into a
+  *pure-volume* and a *mix* part, so it actually shows a non-trivial mix (−€675k on
+  this data — growth skewed to lower-priced categories) rather than folding it into
+  a near-zero residual. Same exact-reconciliation discipline: `price + volume + mix
+  == revenue change` to the cent, tested, and the SVG's labels are read back and
+  checked against the source.
 - **The returns cost is a model, not a measurement** — `rate × avg cost`, because
   the synthetic data doesn't carry restocking cost. Labelled as such everywhere.
 - **The SQL↔Python cross-check** is my favourite test: the revenue-by-region

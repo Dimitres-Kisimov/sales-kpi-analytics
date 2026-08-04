@@ -23,6 +23,7 @@ from . import metrics
 from .dataset import load, monthly_series
 from .forecast import select_and_forecast
 from .inventory import reorder_recommendation
+from .pvm import bridge_waterfall_steps, plain_language, revenue_bridge
 from .spend import spend_summary, waterfall_steps
 
 OUT = Path(__file__).resolve().parents[1] / "deliverables"
@@ -44,6 +45,7 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     for c in rfm_all:
         seg_counts[c["segment"]] = seg_counts.get(c["segment"], 0) + 1
     bridge = metrics.margin_bridge(rows)
+    rev_bridge = revenue_bridge(rows)
     conc = metrics.concentration(rows)
     expenditure = spend_summary(rows)
 
@@ -73,12 +75,13 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     reorders.sort(key=lambda d: -d["recommended_order_qty"])
 
     cards = _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc,
-                            expenditure)
+                            expenditure, rev_bridge)
     return {
         "kpi": kpi, "growth": grow, "regions": regions, "categories": categories,
         "channels": channels, "reps": reps, "abc_xyz": abcxyz,
         "rfm_segments": seg_counts, "rfm_top": rfm_all[:10],
-        "margin_bridge": bridge, "concentration": conc, "expenditure": expenditure,
+        "margin_bridge": bridge, "revenue_bridge": rev_bridge,
+        "concentration": conc, "expenditure": expenditure,
         "revenue_forecast": {"winner": rev_fc.winner, "cv_mase": rev_fc.cv_mase,
                              "history": rev_series, "forecast": rev_fc.values,
                              "leaderboard": [vars(r) for r in rev_fc.leaderboard]},
@@ -88,8 +91,18 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
 
 
 def _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc,
-                    expenditure=None) -> list[str]:
+                    expenditure=None, rev_bridge=None) -> list[str]:
     cards = []
+    if rev_bridge and rev_bridge.get("available"):
+        drivers = {"price": rev_bridge["price_effect_eur"],
+                   "volume": rev_bridge["volume_effect_eur"],
+                   "mix": rev_bridge["mix_effect_eur"]}
+        best = max(drivers, key=drivers.get)
+        worst = min(drivers, key=drivers.get)
+        cards.append("Revenue bridge (YoY): " + plain_language(rev_bridge)
+                     + f" {best.capitalize()} was the biggest tailwind "
+                     f"({drivers[best]:+,.0f} EUR); {worst} the biggest drag "
+                     f"({drivers[worst]:+,.0f} EUR).")
     dd = (expenditure or {}).get("leakage_drilldown")
     if dd and dd.get("by_sales_rep"):
         w = dd["by_sales_rep"][0]
@@ -148,6 +161,13 @@ def write_deliverables(analysis: dict[str, Any], outdir: Path | None = None) -> 
     lw = _write_leakage_chart(analysis, out)
     if lw:
         made.append(lw)
+    made.append(_write_pvm_csv(analysis, out))
+    psvg = _write_pvm_svg(analysis, out)
+    if psvg:
+        made.append(psvg)
+    ppng = _write_pvm_chart(analysis, out)
+    if ppng:
+        made.append(ppng)
     return made
 
 
@@ -165,6 +185,7 @@ def _write_reorder_csv(a: dict, out: Path) -> str:
 def _write_markdown(a: dict, out: Path) -> str:
     k, g = a["kpi"], a["growth"]
     b = a["margin_bridge"]
+    rb = a.get("revenue_bridge", {})
     lines = [
         "# Quarterly Business Review — Sales & Demand Analytics",
         "",
@@ -182,7 +203,30 @@ def _write_markdown(a: dict, out: Path) -> str:
         "## 2. What the numbers say (decision cards)",
     ]
     lines += [f"- {c}" for c in a["decision_cards"]]
-    lines += ["", "## 3. Margin bridge (YoY, price / volume / mix)"]
+    lines += ["", "## 3. Revenue bridge — why did revenue move? (YoY, price / volume / mix)"]
+    if rb.get("available"):
+        lines += [
+            f"- {plain_language(rb)}",
+            f"- Prior 12m revenue: {rb['prior_revenue_eur']:,.0f} EUR ({rb['period_prior']}) → "
+            f"current {rb['current_revenue_eur']:,.0f} EUR ({rb['period_current']}) "
+            f"(**{rb['total_change_eur']:+,.0f} EUR**, {rb['total_change_pct']:+.1f}%; units "
+            f"{rb['volume_growth_pct']:+.1f}%)",
+            f"- Price effect: {rb['price_effect_eur']:+,.0f} EUR · Volume: "
+            f"{rb['volume_effect_eur']:+,.0f} EUR · Mix: {rb['mix_effect_eur']:+,.0f} EUR "
+            "— the three sum to the total change by construction (mix is the residual).",
+            "",
+            "| Category | Prior rev | Current rev | Price | Volume | Mix |",
+            "|---|--:|--:|--:|--:|--:|",
+        ]
+        for c in rb["by_category"]:
+            lines.append(f"| {c['product_category']} | {c['prior_revenue_eur']:,.0f} | "
+                         f"{c['current_revenue_eur']:,.0f} | {c['price_effect_eur']:+,.0f} | "
+                         f"{c['volume_effect_eur']:+,.0f} | {c['mix_effect_eur']:+,.0f} |")
+        lines.append("")
+        lines.append("*Realised price = revenue ÷ units per category; volume is proportional "
+                     "growth at the prior blended price, mix the reallocation across categories. "
+                     "See `pvm_bridge.csv` and `pvm_waterfall.svg`.*")
+    lines += ["", "## 4. Margin bridge (YoY, price / volume / mix)"]
     if b.get("available"):
         lines += [
             f"- Prior 12m margin: {b['prior_margin_eur']:,.0f} EUR → current {b['current_margin_eur']:,.0f} EUR "
@@ -190,22 +234,22 @@ def _write_markdown(a: dict, out: Path) -> str:
             f"- Price effect: {b['price_effect_eur']:+,.0f} EUR · Volume: {b['volume_effect_eur']:+,.0f} EUR · "
             f"Mix: {b['mix_effect_eur']:+,.0f} EUR",
         ]
-    lines += ["", "## 4. Portfolio (ABC × XYZ)",
+    lines += ["", "## 5. Portfolio (ABC × XYZ)",
               "| Category | Revenue | Share | Class | CV |", "|---|--:|--:|:--:|--:|"]
     for r in a["abc_xyz"]:
         lines.append(f"| {r['product_category']} | {r['revenue_eur']:,.0f} | "
                      f"{r['revenue_share_pct']:.1f}% | {r['class']} | {r['cv']} |")
     rf = a["revenue_forecast"]
-    lines += ["", "## 5. Revenue forecast (next 3 months)",
+    lines += ["", "## 6. Revenue forecast (next 3 months)",
               f"- Model selected by rolling-origin cross-validation: **{rf['winner']}** "
               f"(CV-MASE {rf['cv_mase']:.2f}; <1 beats the seasonal-naive baseline)",
               f"- Forecast: {', '.join(f'{v:,.0f}' for v in rf['forecast'])} EUR",
-              "", "## 6. Replenishment — reorder now",
+              "", "## 7. Replenishment — reorder now",
               f"- {len(a['reorder_list'])} region×category cells are at/below their reorder point.",
               "  See `reorder_list.csv` for quantities (safety stock at per-ABC service levels)."]
     sp = a.get("expenditure")
     if sp:
-        lines += ["", "## 7. Expenditure & spend",
+        lines += ["", "## 8. Expenditure & spend",
                   f"- Total COGS: **{sp['total_cogs_eur']:,.0f} EUR** "
                   f"on {sp['list_value_eur']:,.0f} EUR of list value.",
                   f"- Discount leakage: **{sp['discount_leakage_eur']:,.0f} EUR** "
@@ -221,7 +265,7 @@ def _write_markdown(a: dict, out: Path) -> str:
         dd = sp.get("leakage_drilldown")
         if dd:
             lines += [
-                "", "### 7.1 Discount-leakage drill-down — who, where",
+                "", "### 8.1 Discount-leakage drill-down — who, where",
                 f"Waterfall: gross list value {dd['gross_list_value_eur']:,.0f} EUR "
                 f"− within-policy discounts {dd['within_policy_discount_eur']:,.0f} EUR "
                 f"− excess discounts {dd['excess_discount_eur']:,.0f} EUR "
@@ -290,6 +334,22 @@ def _write_xlsx(a: dict, out: Path) -> str | None:
     sheet("Reorder list", a["reorder_list"],
           ["region", "category", "abc_class", "safety_stock", "reorder_point",
            "on_hand", "recommended_order_qty"])
+    rb = a.get("revenue_bridge", {})
+    if rb.get("available"):
+        sheet("Revenue bridge", rb["by_category"],
+              ["product_category", "prior_units", "current_units", "prior_price_eur",
+               "current_price_eur", "prior_revenue_eur", "current_revenue_eur",
+               "price_effect_eur", "volume_effect_eur", "mix_effect_eur"])
+        s = wb["Revenue bridge"]
+        s.append([])
+        s.append(["Prior revenue EUR", rb["prior_revenue_eur"]])
+        s.append(["Current revenue EUR", rb["current_revenue_eur"]])
+        s.append(["Total change EUR", rb["total_change_eur"]])
+        s.append(["Price effect EUR", rb["price_effect_eur"]])
+        s.append(["Volume effect EUR", rb["volume_effect_eur"]])
+        s.append(["Mix effect EUR", rb["mix_effect_eur"]])
+        s.append(["Note", "price+volume+mix = total change (mix is the residual); "
+                          "synthetic data"])
     sp = a.get("expenditure")
     if sp:
         sheet("Spend", sp["cost_to_serve_by_channel"],
@@ -500,3 +560,181 @@ def _write_leakage_chart(a: dict, out: Path) -> str | None:
     fig.savefig(out / "leakage_waterfall.png", dpi=140)
     plt.close(fig)
     return "leakage_waterfall.png"
+
+
+# --------------------------------------------------------------------------- #
+# Revenue price/volume/mix bridge — CSV + offline SVG waterfall
+# --------------------------------------------------------------------------- #
+def _write_pvm_csv(a: dict, out: Path) -> str:
+    """Per-category revenue PVM decomposition + a TOTAL row that ties out."""
+    rb = a.get("revenue_bridge", {})
+    cols = ["product_category", "prior_units", "current_units", "prior_price_eur",
+            "current_price_eur", "prior_revenue_eur", "current_revenue_eur",
+            "price_effect_eur", "volume_effect_eur", "mix_effect_eur"]
+    with (out / "pvm_bridge.csv").open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
+        w.writeheader()
+        if rb.get("available"):
+            for c in rb["by_category"]:
+                w.writerow(c)
+            w.writerow({
+                "product_category": "TOTAL",
+                "prior_units": rb["prior_units"], "current_units": rb["current_units"],
+                "prior_revenue_eur": rb["prior_revenue_eur"],
+                "current_revenue_eur": rb["current_revenue_eur"],
+                "price_effect_eur": rb["price_effect_eur"],
+                "volume_effect_eur": rb["volume_effect_eur"],
+                "mix_effect_eur": rb["mix_effect_eur"],
+            })
+    return "pvm_bridge.csv"
+
+
+def render_pvm_svg(rb: dict[str, Any]) -> str:
+    """The revenue price/volume/mix bridge as a self-contained, offline SVG —
+    no server, no CDN, no external asset references, pure stdlib.
+
+    Bars and every on-screen euro amount come from `bridge_waterfall_steps(rb)`,
+    the same model the tests assert against. Two grey totals (prior → current)
+    anchor the walk; the three effects float between the running totals. The
+    y-axis is zoomed to the delta band (clearly labelled, since the change is
+    small next to the ~€11M base) so the effect bars are actually visible; the
+    value labels are the exact euro amounts to the cent, so the picture can be
+    reconciled to source in a test.
+    """
+    steps = bridge_waterfall_steps(rb)
+    W, H = 940, 380
+    m = {"t": 52, "r": 24, "b": 64, "l": 96}
+    iw, ih = W - m["l"] - m["r"], H - m["t"] - m["b"]
+
+    # cumulative running totals -> the visible band (zoomed, not from zero)
+    cum, run = [], 0.0
+    for s in steps[:-1]:
+        run = s["value"] if s["kind"] == "total" else run + s["value"]
+        cum.append(run)
+    lo, hi = min(cum), max(cum)
+    span = (hi - lo) or (abs(hi) or 1.0)
+    ymin, ymax = lo - 0.14 * span, hi + 0.20 * span
+
+    def y(v: float) -> float:
+        return m["t"] + ih - (v - ymin) / (ymax - ymin) * ih
+
+    green, red, grey = "#2f9e6f", "#e34948", "#8b8f99"
+    total = rb["total_change_eur"]
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" role="img" '
+        f'aria-label="Revenue price-volume-mix bridge from prior-year revenue through '
+        f'price, volume and mix effects to current-year revenue" '
+        f'font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">',
+        f'<rect x="0" y="0" width="{W}" height="{H}" fill="#fcfcfb"/>',
+        f'<text x="{m["l"]}" y="26" font-size="15" font-weight="700" fill="#0b0b0b">'
+        f'Revenue bridge (YoY) &#8212; price / volume / mix</text>',
+        f'<text x="{m["l"]}" y="44" font-size="12" fill="#52514e">'
+        f'Total change {"+" if total >= 0 else "&#8722;"}&#8364;{abs(total):,.2f} '
+        f'({rb["total_change_pct"]:+.1f}%) &#183; {_svg_esc(rb["period_prior"])} '
+        f'&#8594; {_svg_esc(rb["period_current"])}</text>',
+    ]
+    # horizontal gridlines + zoomed y-axis ticks (euro, millions, 1 dp -> no cents)
+    for t in range(5):
+        val = ymin + (ymax - ymin) * t / 4
+        yy = y(val)
+        parts.append(f'<line x1="{m["l"]}" y1="{yy:.1f}" x2="{W - m["r"]}" y2="{yy:.1f}" '
+                     f'stroke="#e1e0d9" stroke-width="1"/>')
+        parts.append(f'<text x="{m["l"] - 8}" y="{yy + 3:.1f}" text-anchor="end" '
+                     f'font-size="11" fill="#898781">&#8364;{val / 1e6:,.1f}M</text>')
+
+    slot = iw / len(steps)
+    bw = 108
+    for i, s in enumerate(steps):
+        cx = m["l"] + slot * (i + 0.5)
+        color = grey if s["kind"] == "total" else (green if s["kind"] == "increase" else red)
+        if s["kind"] == "total":
+            y_top, y_bot = y(s["value"]), y(ymin)
+        else:
+            y_top, y_bot = y(s["bottom"] + s["height"]), y(s["bottom"])
+        parts.append(f'<rect x="{cx - bw / 2:.1f}" y="{y_top:.1f}" width="{bw}" '
+                     f'height="{max(2.0, y_bot - y_top):.1f}" fill="{color}" rx="4"/>')
+        v = s["value"]
+        if s["kind"] == "total":
+            lab = f'&#8364;{v:,.2f}'
+        elif s["kind"] == "increase":
+            lab = f'+&#8364;{v:,.2f}'
+        else:
+            lab = f'&#8722;&#8364;{abs(v):,.2f}'
+        parts.append(f'<text x="{cx:.1f}" y="{y_top - 8:.1f}" text-anchor="middle" '
+                     f'font-size="11.5" font-weight="650" fill="#0b0b0b">{lab}</text>')
+        parts.append(f'<text x="{cx:.1f}" y="{H - 26}" text-anchor="middle" '
+                     f'font-size="11" fill="#52514e">{_svg_esc(s["label"])}</text>')
+    # dotted connectors linking each running total to the next bar
+    for i, lvl in enumerate(cum):
+        x1 = m["l"] + slot * (i + 0.5) + bw / 2
+        x2 = m["l"] + slot * (i + 1.5) - bw / 2
+        parts.append(f'<line x1="{x1:.1f}" y1="{y(lvl):.1f}" x2="{x2:.1f}" y2="{y(lvl):.1f}" '
+                     f'stroke="#898781" stroke-width="1" stroke-dasharray="3 4"/>')
+    parts.append(
+        f'<text x="{m["l"]}" y="{H - 8}" font-size="11" fill="#898781">'
+        f'Realised price = revenue &#247; units per category &#183; volume = proportional '
+        f'growth at the prior blended price &#183; mix = residual reallocation &#183; '
+        f'y-axis zoomed to the delta band (synthetic data)</text>')
+    parts.append("</svg>")
+    return "\n".join(parts) + "\n"
+
+
+def _write_pvm_svg(a: dict, out: Path) -> str | None:
+    """Offline SVG revenue-bridge waterfall (stdlib only — always produced)."""
+    rb = a.get("revenue_bridge", {})
+    if not rb.get("available"):
+        return None
+    (out / "pvm_waterfall.svg").write_text(render_pvm_svg(rb), encoding="utf-8")
+    return "pvm_waterfall.svg"
+
+
+def _write_pvm_chart(a: dict, out: Path) -> str | None:
+    """Matplotlib PNG of the revenue-bridge waterfall (optional — same model as
+    the SVG, so the two cannot diverge). Skipped if matplotlib is absent."""
+    rb = a.get("revenue_bridge", {})
+    if not rb.get("available"):
+        return None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return None
+    ink, green, red, grey = "#1a1f2b", "#2f9e6f", "#2f6bff", "#8b8f99"
+    steps = bridge_waterfall_steps(rb)
+    fig, ax = plt.subplots(figsize=(11, 4.6))
+    cum, run = [], 0.0
+    for s in steps[:-1]:
+        run = s["value"] if s["kind"] == "total" else run + s["value"]
+        cum.append(run)
+    lo, hi = min(cum), max(cum)
+    span = (hi - lo) or 1.0
+    ymin, ymax = (lo - 0.14 * span) / 1e6, (hi + 0.20 * span) / 1e6
+    for i, s in enumerate(steps):
+        color = grey if s["kind"] == "total" else (green if s["kind"] == "increase" else red)
+        if s["kind"] == "total":
+            bottom, height = ymin, s["value"] / 1e6 - ymin
+        else:
+            bottom, height = s["bottom"] / 1e6, s["height"] / 1e6
+        ax.bar(i, height, bottom=bottom, color=color, width=0.6,
+               edgecolor="white", linewidth=1.4)
+        v = s["value"] / 1e6
+        lab = f"{v:,.2f}M" if s["kind"] == "total" else f"{v:+,.2f}M"
+        ax.annotate(lab, (i, bottom + height), textcoords="offset points",
+                    xytext=(0, 5), ha="center", fontsize=9.5, color=ink)
+    for i, lvl in enumerate(cum):
+        ax.plot([i + 0.3, i + 1 - 0.3], [lvl / 1e6, lvl / 1e6], color=grey, lw=1, ls=":")
+    ax.set_ylim(ymin, ymax)
+    ax.set_xticks(range(len(steps)))
+    ax.set_xticklabels([s["label"] for s in steps], fontsize=9)
+    ax.set_ylabel("EUR (millions)")
+    ax.set_title(f"Revenue bridge {rb['total_change_eur'] / 1e6:+,.2f}M EUR YoY "
+                 f"= price {rb['price_effect_eur'] / 1e3:+,.0f}k + volume "
+                 f"{rb['volume_effect_eur'] / 1e6:+,.2f}M + mix "
+                 f"{rb['mix_effect_eur'] / 1e6:+,.2f}M", fontsize=10.5)
+    ax.grid(axis="y", alpha=0.3)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    fig.savefig(out / "pvm_waterfall.png", dpi=140)
+    plt.close(fig)
+    return "pvm_waterfall.png"

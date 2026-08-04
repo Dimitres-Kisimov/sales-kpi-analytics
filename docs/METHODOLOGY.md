@@ -82,6 +82,41 @@ one common, defensible choice.
 
 ---
 
+## Revenue bridge — price / volume / mix (PVM)
+
+The margin bridge above answers *why did margin move*; the **revenue bridge**
+(`saleskpi.pvm.revenue_bridge`) answers the sibling question every sales team
+asks — *why did revenue move* — decomposing the **YoY revenue change** (last 12
+months vs prior 12, per category) into three effects. Realised price per category
+is `revenue ÷ units`; with `q` = units, `p` = realised price, subscript 0 = prior
+and 1 = current, and **λ = total-units₁ / total-units₀** the overall volume-growth
+factor:
+
+- **Price effect** = Σ (p₁ − p₀) · q₁ — the change in realised price, valued on
+  current volume.
+- **Volume effect** = revenue₀ · (λ − 1) — *pure* proportional growth: what the top
+  line would have done if every category had grown at the blended rate and prices
+  and mix had held.
+- **Mix effect** = total change − price − volume — the residual, which works out
+  to exactly the textbook mix term Σ p₀ · (q₁ − λ·q₀): the reallocation of demand
+  towards higher- or lower-priced categories.
+
+The plain two-way "quantity effect", Σ (q₁ − q₀) · p₀, is here **split** into the
+pure-volume and mix parts, so a shift in *what* sold (not just *how much*) is
+visible on its own bar. By construction **price + volume + mix = current − prior
+revenue** to the cent — a test asserts the identity exactly, and reads the euro
+labels back off the rendered SVG to assert the picture equals the source. On this
+synthetic data the walk is **+€722,407** (price +€16,048, volume +€1,381,732, mix
+−€675,373): units grew 13% but the growth skewed toward lower-priced categories,
+so mix is a genuine drag — precisely the kind of thing a two-way split hides.
+
+*Caveat:* like every PVM decomposition, the split is sensitive to how categories
+that appear in only one period are treated; here all six categories are present in
+both periods, so that edge case doesn't arise. Deliverables: `pvm_bridge.csv`
+(per-category, with a TOTAL row that ties out) and `pvm_waterfall.svg` / `.png`.
+
+---
+
 ## Demand forecasting
 
 ### The models
