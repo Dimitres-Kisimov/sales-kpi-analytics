@@ -881,6 +881,917 @@ window.ANALYSIS = {
       ]
     }
   },
+  "kpi_alerts": {
+    "method": "robust control chart (median ± k·MAD/0.6745, Iglewicz–Hoaglin modified z)",
+    "k_sigma": 3.5,
+    "months": 24,
+    "period": "2024-01..2025-12",
+    "monitored_kpis": [
+      "gross_margin_pct",
+      "otif_pct",
+      "returns_rate_pct",
+      "discount_leakage_pct",
+      "aov_eur"
+    ],
+    "series": {
+      "gross_margin_pct": {
+        "kpi": "gross_margin_pct",
+        "label": "Gross margin %",
+        "unit": "%",
+        "polarity": "higher_is_better",
+        "seasonal": false,
+        "center": 21.98,
+        "sigma_robust": 0.8228,
+        "lower_limit": 19.11,
+        "upper_limit": 24.86,
+        "n_flagged": 0,
+        "points": [
+          {
+            "month": "2024-01",
+            "value": 24.18,
+            "modified_z": 2.668,
+            "flagged": false
+          },
+          {
+            "month": "2024-02",
+            "value": 22.14,
+            "modified_z": 0.188,
+            "flagged": false
+          },
+          {
+            "month": "2024-03",
+            "value": 21.14,
+            "modified_z": -1.027,
+            "flagged": false
+          },
+          {
+            "month": "2024-04",
+            "value": 21.89,
+            "modified_z": -0.115,
+            "flagged": false
+          },
+          {
+            "month": "2024-05",
+            "value": 21.45,
+            "modified_z": -0.65,
+            "flagged": false
+          },
+          {
+            "month": "2024-06",
+            "value": 21.04,
+            "modified_z": -1.148,
+            "flagged": false
+          },
+          {
+            "month": "2024-07",
+            "value": 23.52,
+            "modified_z": 1.866,
+            "flagged": false
+          },
+          {
+            "month": "2024-08",
+            "value": 22.55,
+            "modified_z": 0.687,
+            "flagged": false
+          },
+          {
+            "month": "2024-09",
+            "value": 21.16,
+            "modified_z": -1.003,
+            "flagged": false
+          },
+          {
+            "month": "2024-10",
+            "value": 21.18,
+            "modified_z": -0.978,
+            "flagged": false
+          },
+          {
+            "month": "2024-11",
+            "value": 21.44,
+            "modified_z": -0.662,
+            "flagged": false
+          },
+          {
+            "month": "2024-12",
+            "value": 22.35,
+            "modified_z": 0.444,
+            "flagged": false
+          },
+          {
+            "month": "2025-01",
+            "value": 22.95,
+            "modified_z": 1.173,
+            "flagged": false
+          },
+          {
+            "month": "2025-02",
+            "value": 22.38,
+            "modified_z": 0.48,
+            "flagged": false
+          },
+          {
+            "month": "2025-03",
+            "value": 23.7,
+            "modified_z": 2.084,
+            "flagged": false
+          },
+          {
+            "month": "2025-04",
+            "value": 21.56,
+            "modified_z": -0.517,
+            "flagged": false
+          },
+          {
+            "month": "2025-05",
+            "value": 21.79,
+            "modified_z": -0.237,
+            "flagged": false
+          },
+          {
+            "month": "2025-06",
+            "value": 22.08,
+            "modified_z": 0.115,
+            "flagged": false
+          },
+          {
+            "month": "2025-07",
+            "value": 21.75,
+            "modified_z": -0.286,
+            "flagged": false
+          },
+          {
+            "month": "2025-08",
+            "value": 23.29,
+            "modified_z": 1.586,
+            "flagged": false
+          },
+          {
+            "month": "2025-09",
+            "value": 22.35,
+            "modified_z": 0.444,
+            "flagged": false
+          },
+          {
+            "month": "2025-10",
+            "value": 21.66,
+            "modified_z": -0.395,
+            "flagged": false
+          },
+          {
+            "month": "2025-11",
+            "value": 22.94,
+            "modified_z": 1.161,
+            "flagged": false
+          },
+          {
+            "month": "2025-12",
+            "value": 19.68,
+            "modified_z": -2.801,
+            "flagged": false
+          }
+        ]
+      },
+      "otif_pct": {
+        "kpi": "otif_pct",
+        "label": "OTIF %",
+        "unit": "%",
+        "polarity": "higher_is_better",
+        "seasonal": false,
+        "center": 86.46,
+        "sigma_robust": 1.2231,
+        "lower_limit": 82.18,
+        "upper_limit": 90.74,
+        "n_flagged": 6,
+        "points": [
+          {
+            "month": "2024-01",
+            "value": 87.27,
+            "modified_z": 0.662,
+            "flagged": false
+          },
+          {
+            "month": "2024-02",
+            "value": 87.79,
+            "modified_z": 1.087,
+            "flagged": false
+          },
+          {
+            "month": "2024-03",
+            "value": 87.3,
+            "modified_z": 0.687,
+            "flagged": false
+          },
+          {
+            "month": "2024-04",
+            "value": 86.52,
+            "modified_z": 0.049,
+            "flagged": false
+          },
+          {
+            "month": "2024-05",
+            "value": 81.01,
+            "modified_z": -4.456,
+            "flagged": true
+          },
+          {
+            "month": "2024-06",
+            "value": 85.85,
+            "modified_z": -0.499,
+            "flagged": false
+          },
+          {
+            "month": "2024-07",
+            "value": 87.14,
+            "modified_z": 0.556,
+            "flagged": false
+          },
+          {
+            "month": "2024-08",
+            "value": 86.03,
+            "modified_z": -0.352,
+            "flagged": false
+          },
+          {
+            "month": "2024-09",
+            "value": 80.3,
+            "modified_z": -5.036,
+            "flagged": true
+          },
+          {
+            "month": "2024-10",
+            "value": 81.52,
+            "modified_z": -4.039,
+            "flagged": true
+          },
+          {
+            "month": "2024-11",
+            "value": 86.97,
+            "modified_z": 0.417,
+            "flagged": false
+          },
+          {
+            "month": "2024-12",
+            "value": 86.65,
+            "modified_z": 0.155,
+            "flagged": false
+          },
+          {
+            "month": "2025-01",
+            "value": 87.88,
+            "modified_z": 1.161,
+            "flagged": false
+          },
+          {
+            "month": "2025-02",
+            "value": 86.4,
+            "modified_z": -0.049,
+            "flagged": false
+          },
+          {
+            "month": "2025-03",
+            "value": 85.45,
+            "modified_z": -0.826,
+            "flagged": false
+          },
+          {
+            "month": "2025-04",
+            "value": 86.52,
+            "modified_z": 0.049,
+            "flagged": false
+          },
+          {
+            "month": "2025-05",
+            "value": 81.78,
+            "modified_z": -3.826,
+            "flagged": true
+          },
+          {
+            "month": "2025-06",
+            "value": 86.86,
+            "modified_z": 0.327,
+            "flagged": false
+          },
+          {
+            "month": "2025-07",
+            "value": 88.31,
+            "modified_z": 1.513,
+            "flagged": false
+          },
+          {
+            "month": "2025-08",
+            "value": 86.23,
+            "modified_z": -0.188,
+            "flagged": false
+          },
+          {
+            "month": "2025-09",
+            "value": 79.04,
+            "modified_z": -6.066,
+            "flagged": true
+          },
+          {
+            "month": "2025-10",
+            "value": 80.46,
+            "modified_z": -4.905,
+            "flagged": true
+          },
+          {
+            "month": "2025-11",
+            "value": 87.7,
+            "modified_z": 1.014,
+            "flagged": false
+          },
+          {
+            "month": "2025-12",
+            "value": 85.92,
+            "modified_z": -0.441,
+            "flagged": false
+          }
+        ]
+      },
+      "returns_rate_pct": {
+        "kpi": "returns_rate_pct",
+        "label": "Returns rate %",
+        "unit": "%",
+        "polarity": "lower_is_better",
+        "seasonal": false,
+        "center": 3.37,
+        "sigma_robust": 0.8006,
+        "lower_limit": 0.57,
+        "upper_limit": 6.17,
+        "n_flagged": 0,
+        "points": [
+          {
+            "month": "2024-01",
+            "value": 4.52,
+            "modified_z": 1.436,
+            "flagged": false
+          },
+          {
+            "month": "2024-02",
+            "value": 2.71,
+            "modified_z": -0.824,
+            "flagged": false
+          },
+          {
+            "month": "2024-03",
+            "value": 3.3,
+            "modified_z": -0.087,
+            "flagged": false
+          },
+          {
+            "month": "2024-04",
+            "value": 3.21,
+            "modified_z": -0.2,
+            "flagged": false
+          },
+          {
+            "month": "2024-05",
+            "value": 4.2,
+            "modified_z": 1.037,
+            "flagged": false
+          },
+          {
+            "month": "2024-06",
+            "value": 4.4,
+            "modified_z": 1.287,
+            "flagged": false
+          },
+          {
+            "month": "2024-07",
+            "value": 3.6,
+            "modified_z": 0.287,
+            "flagged": false
+          },
+          {
+            "month": "2024-08",
+            "value": 3.91,
+            "modified_z": 0.674,
+            "flagged": false
+          },
+          {
+            "month": "2024-09",
+            "value": 2.56,
+            "modified_z": -1.012,
+            "flagged": false
+          },
+          {
+            "month": "2024-10",
+            "value": 3.81,
+            "modified_z": 0.55,
+            "flagged": false
+          },
+          {
+            "month": "2024-11",
+            "value": 3.91,
+            "modified_z": 0.674,
+            "flagged": false
+          },
+          {
+            "month": "2024-12",
+            "value": 3.39,
+            "modified_z": 0.025,
+            "flagged": false
+          },
+          {
+            "month": "2025-01",
+            "value": 3.6,
+            "modified_z": 0.287,
+            "flagged": false
+          },
+          {
+            "month": "2025-02",
+            "value": 1.53,
+            "modified_z": -2.298,
+            "flagged": false
+          },
+          {
+            "month": "2025-03",
+            "value": 5.3,
+            "modified_z": 2.411,
+            "flagged": false
+          },
+          {
+            "month": "2025-04",
+            "value": 2.53,
+            "modified_z": -1.049,
+            "flagged": false
+          },
+          {
+            "month": "2025-05",
+            "value": 3.11,
+            "modified_z": -0.325,
+            "flagged": false
+          },
+          {
+            "month": "2025-06",
+            "value": 2.82,
+            "modified_z": -0.687,
+            "flagged": false
+          },
+          {
+            "month": "2025-07",
+            "value": 4.44,
+            "modified_z": 1.337,
+            "flagged": false
+          },
+          {
+            "month": "2025-08",
+            "value": 2.24,
+            "modified_z": -1.411,
+            "flagged": false
+          },
+          {
+            "month": "2025-09",
+            "value": 3.7,
+            "modified_z": 0.412,
+            "flagged": false
+          },
+          {
+            "month": "2025-10",
+            "value": 3.35,
+            "modified_z": -0.025,
+            "flagged": false
+          },
+          {
+            "month": "2025-11",
+            "value": 3.18,
+            "modified_z": -0.237,
+            "flagged": false
+          },
+          {
+            "month": "2025-12",
+            "value": 3.03,
+            "modified_z": -0.425,
+            "flagged": false
+          }
+        ]
+      },
+      "discount_leakage_pct": {
+        "kpi": "discount_leakage_pct",
+        "label": "Discount leakage %",
+        "unit": "%",
+        "polarity": "lower_is_better",
+        "seasonal": false,
+        "center": 10.79,
+        "sigma_robust": 0.6523,
+        "lower_limit": 8.5,
+        "upper_limit": 13.07,
+        "n_flagged": 0,
+        "points": [
+          {
+            "month": "2024-01",
+            "value": 8.98,
+            "modified_z": -2.767,
+            "flagged": false
+          },
+          {
+            "month": "2024-02",
+            "value": 9.62,
+            "modified_z": -1.786,
+            "flagged": false
+          },
+          {
+            "month": "2024-03",
+            "value": 11.08,
+            "modified_z": 0.452,
+            "flagged": false
+          },
+          {
+            "month": "2024-04",
+            "value": 10.2,
+            "modified_z": -0.897,
+            "flagged": false
+          },
+          {
+            "month": "2024-05",
+            "value": 10.78,
+            "modified_z": -0.008,
+            "flagged": false
+          },
+          {
+            "month": "2024-06",
+            "value": 11.46,
+            "modified_z": 1.035,
+            "flagged": false
+          },
+          {
+            "month": "2024-07",
+            "value": 9.47,
+            "modified_z": -2.016,
+            "flagged": false
+          },
+          {
+            "month": "2024-08",
+            "value": 10.51,
+            "modified_z": -0.422,
+            "flagged": false
+          },
+          {
+            "month": "2024-09",
+            "value": 11.81,
+            "modified_z": 1.571,
+            "flagged": false
+          },
+          {
+            "month": "2024-10",
+            "value": 10.84,
+            "modified_z": 0.084,
+            "flagged": false
+          },
+          {
+            "month": "2024-11",
+            "value": 10.96,
+            "modified_z": 0.268,
+            "flagged": false
+          },
+          {
+            "month": "2024-12",
+            "value": 11.03,
+            "modified_z": 0.376,
+            "flagged": false
+          },
+          {
+            "month": "2025-01",
+            "value": 10.75,
+            "modified_z": -0.054,
+            "flagged": false
+          },
+          {
+            "month": "2025-02",
+            "value": 10.18,
+            "modified_z": -0.927,
+            "flagged": false
+          },
+          {
+            "month": "2025-03",
+            "value": 9.69,
+            "modified_z": -1.679,
+            "flagged": false
+          },
+          {
+            "month": "2025-04",
+            "value": 11.57,
+            "modified_z": 1.203,
+            "flagged": false
+          },
+          {
+            "month": "2025-05",
+            "value": 10.79,
+            "modified_z": 0.008,
+            "flagged": false
+          },
+          {
+            "month": "2025-06",
+            "value": 10.8,
+            "modified_z": 0.023,
+            "flagged": false
+          },
+          {
+            "month": "2025-07",
+            "value": 11.01,
+            "modified_z": 0.345,
+            "flagged": false
+          },
+          {
+            "month": "2025-08",
+            "value": 9.45,
+            "modified_z": -2.046,
+            "flagged": false
+          },
+          {
+            "month": "2025-09",
+            "value": 10.75,
+            "modified_z": -0.054,
+            "flagged": false
+          },
+          {
+            "month": "2025-10",
+            "value": 10.83,
+            "modified_z": 0.069,
+            "flagged": false
+          },
+          {
+            "month": "2025-11",
+            "value": 9.84,
+            "modified_z": -1.449,
+            "flagged": false
+          },
+          {
+            "month": "2025-12",
+            "value": 12.31,
+            "modified_z": 2.338,
+            "flagged": false
+          }
+        ]
+      },
+      "aov_eur": {
+        "kpi": "aov_eur",
+        "label": "Average order value",
+        "unit": "EUR",
+        "polarity": "neutral",
+        "seasonal": false,
+        "center": 1458.86,
+        "sigma_robust": 173.195,
+        "lower_limit": 852.68,
+        "upper_limit": 2065.04,
+        "n_flagged": 0,
+        "points": [
+          {
+            "month": "2024-01",
+            "value": 1119.36,
+            "modified_z": -1.96,
+            "flagged": false
+          },
+          {
+            "month": "2024-02",
+            "value": 1390.97,
+            "modified_z": -0.392,
+            "flagged": false
+          },
+          {
+            "month": "2024-03",
+            "value": 1653.82,
+            "modified_z": 1.126,
+            "flagged": false
+          },
+          {
+            "month": "2024-04",
+            "value": 1532.32,
+            "modified_z": 0.424,
+            "flagged": false
+          },
+          {
+            "month": "2024-05",
+            "value": 1598.12,
+            "modified_z": 0.804,
+            "flagged": false
+          },
+          {
+            "month": "2024-06",
+            "value": 1667.36,
+            "modified_z": 1.204,
+            "flagged": false
+          },
+          {
+            "month": "2024-07",
+            "value": 1238.59,
+            "modified_z": -1.272,
+            "flagged": false
+          },
+          {
+            "month": "2024-08",
+            "value": 1392.27,
+            "modified_z": -0.384,
+            "flagged": false
+          },
+          {
+            "month": "2024-09",
+            "value": 1478.81,
+            "modified_z": 0.115,
+            "flagged": false
+          },
+          {
+            "month": "2024-10",
+            "value": 1504.92,
+            "modified_z": 0.266,
+            "flagged": false
+          },
+          {
+            "month": "2024-11",
+            "value": 1553.24,
+            "modified_z": 0.545,
+            "flagged": false
+          },
+          {
+            "month": "2024-12",
+            "value": 1438.91,
+            "modified_z": -0.115,
+            "flagged": false
+          },
+          {
+            "month": "2025-01",
+            "value": 1109.02,
+            "modified_z": -2.02,
+            "flagged": false
+          },
+          {
+            "month": "2025-02",
+            "value": 1307.27,
+            "modified_z": -0.875,
+            "flagged": false
+          },
+          {
+            "month": "2025-03",
+            "value": 1496.2,
+            "modified_z": 0.216,
+            "flagged": false
+          },
+          {
+            "month": "2025-04",
+            "value": 1273.28,
+            "modified_z": -1.072,
+            "flagged": false
+          },
+          {
+            "month": "2025-05",
+            "value": 1656.29,
+            "modified_z": 1.14,
+            "flagged": false
+          },
+          {
+            "month": "2025-06",
+            "value": 1512.01,
+            "modified_z": 0.307,
+            "flagged": false
+          },
+          {
+            "month": "2025-07",
+            "value": 1316.22,
+            "modified_z": -0.824,
+            "flagged": false
+          },
+          {
+            "month": "2025-08",
+            "value": 1297.68,
+            "modified_z": -0.931,
+            "flagged": false
+          },
+          {
+            "month": "2025-09",
+            "value": 1413.18,
+            "modified_z": -0.264,
+            "flagged": false
+          },
+          {
+            "month": "2025-10",
+            "value": 1501.0,
+            "modified_z": 0.243,
+            "flagged": false
+          },
+          {
+            "month": "2025-11",
+            "value": 1256.56,
+            "modified_z": -1.168,
+            "flagged": false
+          },
+          {
+            "month": "2025-12",
+            "value": 1532.36,
+            "modified_z": 0.424,
+            "flagged": false
+          }
+        ]
+      }
+    },
+    "alerts": [
+      {
+        "kpi": "otif_pct",
+        "label": "OTIF %",
+        "unit": "%",
+        "month": "2025-09",
+        "value": 79.04,
+        "center": 86.46,
+        "lower_limit": 82.18,
+        "upper_limit": 90.74,
+        "modified_z": -6.066,
+        "delta_from_center": -7.42,
+        "direction": "below",
+        "favorable": false,
+        "severity": "severe"
+      },
+      {
+        "kpi": "otif_pct",
+        "label": "OTIF %",
+        "unit": "%",
+        "month": "2024-09",
+        "value": 80.3,
+        "center": 86.46,
+        "lower_limit": 82.18,
+        "upper_limit": 90.74,
+        "modified_z": -5.036,
+        "delta_from_center": -6.16,
+        "direction": "below",
+        "favorable": false,
+        "severity": "elevated"
+      },
+      {
+        "kpi": "otif_pct",
+        "label": "OTIF %",
+        "unit": "%",
+        "month": "2025-10",
+        "value": 80.46,
+        "center": 86.46,
+        "lower_limit": 82.18,
+        "upper_limit": 90.74,
+        "modified_z": -4.905,
+        "delta_from_center": -6.0,
+        "direction": "below",
+        "favorable": false,
+        "severity": "elevated"
+      },
+      {
+        "kpi": "otif_pct",
+        "label": "OTIF %",
+        "unit": "%",
+        "month": "2024-05",
+        "value": 81.01,
+        "center": 86.46,
+        "lower_limit": 82.18,
+        "upper_limit": 90.74,
+        "modified_z": -4.456,
+        "delta_from_center": -5.45,
+        "direction": "below",
+        "favorable": false,
+        "severity": "elevated"
+      },
+      {
+        "kpi": "otif_pct",
+        "label": "OTIF %",
+        "unit": "%",
+        "month": "2024-10",
+        "value": 81.52,
+        "center": 86.46,
+        "lower_limit": 82.18,
+        "upper_limit": 90.74,
+        "modified_z": -4.039,
+        "delta_from_center": -4.94,
+        "direction": "below",
+        "favorable": false,
+        "severity": "elevated"
+      },
+      {
+        "kpi": "otif_pct",
+        "label": "OTIF %",
+        "unit": "%",
+        "month": "2025-05",
+        "value": 81.78,
+        "center": 86.46,
+        "lower_limit": 82.18,
+        "upper_limit": 90.74,
+        "modified_z": -3.826,
+        "delta_from_center": -4.68,
+        "direction": "below",
+        "favorable": false,
+        "severity": "elevated"
+      }
+    ],
+    "summary": {
+      "total_alerts": 6,
+      "unfavorable": 6,
+      "favorable": 0,
+      "by_kpi": {
+        "otif_pct": 6
+      },
+      "kpis_in_control": [
+        "Gross margin %",
+        "Returns rate %",
+        "Discount leakage %",
+        "Average order value"
+      ]
+    }
+  },
   "revenue_forecast": {
     "winner": "seasonal_naive",
     "cv_mase": 1.578,
@@ -1583,6 +2494,7 @@ window.ANALYSIS = {
     }
   ],
   "decision_cards": [
+    "KPI exception monitor: 6 out-of-control month(s) (6 unfavourable) on OTIF % vs robust 3.5-sigma control limits - worst OTIF % 79.04% at 2025-09 (modified z -6.1); 4 monitored KPIs in control.",
     "Revenue bridge (YoY): Revenue rose €722,407 year-on-year: price +€16,048, volume +€1,381,732, mix −€675,373. Volume was the biggest tailwind (+1,381,732 EUR); mix the biggest drag (-675,373 EUR).",
     "Discount drill-down: Berg (Nordics) leads the leakage table - 268,810 EUR vs list, 75,779 EUR of it above the 10% policy assumption - review discount authority there first.",
     "Revenue is up 6.8% YoY; gross margin sits at 22.0%.",

@@ -10,7 +10,7 @@ EXPECTED_KEYS = {
     "kpi", "growth", "regions", "categories", "channels", "reps", "abc_xyz",
     "rfm_segments", "rfm_top", "margin_bridge", "revenue_bridge", "concentration",
     "revenue_forecast", "series_forecasts", "reorder_list", "decision_cards",
-    "expenditure",
+    "expenditure", "kpi_alerts",
 }
 
 

@@ -199,6 +199,51 @@ The spend side mirrors the revenue side:
 
 ---
 
+## KPI exception monitor — robust statistical process control
+
+The exception layer (`saleskpi.anomaly`) is the "what should I look at?" filter over
+the monthly KPI series. Each series gets a **robust control chart**:
+
+- **centre** = the median of the monthly values (not the mean).
+- **scale**  = `MAD / 0.6745`, where MAD is the median absolute deviation. The
+  constant 0.6745 = Φ⁻¹(0.75) rescales the MAD into a normal-consistent estimate of
+  σ. This is the **Iglewicz–Hoaglin** modified-z estimator.
+- **modified z** = `0.6745·(x − median) / MAD`; a month is an **exception** when
+  `|modified z| > k`, with `k = 3.5` (their recommended cut-off).
+- **control limits** = `centre ± k·MAD/0.6745`, so "flagged" and "outside the
+  limits" are the same statement — a test enforces that they never disagree.
+
+Why robust estimators rather than the classic mean ± 3σ chart: with the mean and the
+standard deviation, a single out-of-control month inflates *both*, widening the
+limits so the month can hide inside them (masking). The median and MAD don't move
+when one point blows out, so the exception stays visible. Nothing is tuned to the
+data — the estimator and the 3.5 threshold are the standard ones.
+
+Each exception carries a **polarity** — `higher_is_better` (margin, OTIF),
+`lower_is_better` (returns, discount leakage) or `neutral` (AOV) — so the monitor
+separates "problems to fix" from "wins to bank" instead of just flagging movement.
+
+**Scope, stated honestly.** The monitored KPIs are the quality/service/commercial
+*ratios* plus AOV. The strongly-seasonal *volume* series (revenue, orders) are
+deliberately **excluded** from level-anomaly detection: 24 monthly points are two
+seasonal cycles, too few to estimate a per-month seasonal profile well enough to
+avoid false alarms (a classical centred-moving-average decomposition produces
+edge artefacts here), so revenue movement is left to the out-of-sample forecast CV
+and the price/volume/mix bridge. A robust multiplicative seasonal-adjustment path
+(`anomaly.deseasonalize`, median detrended ratio per position-in-cycle) exists and
+is unit-tested — it removes a pure seasonal pattern with no false alarms and still
+catches an injected shock — but the shipped KPI set uses the raw chart where it is
+sound.
+
+On the synthetic data this surfaces one causal, recurring exception: **OTIF drops
+below its 82.18% lower limit in all six peak-demand months (every May / September /
+October)**, worst September 2025 at 79.04% (modified z −6.07); the other four KPIs
+stay in control. The control chart is rendered as an offline SVG whose centre,
+limits and flagged values are read back and asserted equal to the source, the same
+screen-equals-source discipline the leakage and PVM waterfalls use.
+
+---
+
 ## SQL ↔ Python cross-check
 
 The same revenue-by-region rollup is computed two ways — in Python

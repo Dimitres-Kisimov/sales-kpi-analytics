@@ -59,6 +59,12 @@ def main(argv: list[str] | None = None) -> int:
     rf = analysis["revenue_forecast"]
     print(f"\nForecast (next 3 mo, model {rf['winner']}, CV-MASE {rf['cv_mase']:.2f}): "
           f"{', '.join(f'{v:,.0f}' for v in rf['forecast'])} EUR")
+    ex = analysis.get("kpi_alerts")
+    if ex:
+        es = ex["summary"]
+        print(f"\nKPI exception monitor: {es['total_alerts']} out-of-control month(s) "
+              f"({es['unfavorable']} unfavourable) across {len(ex['monitored_kpis'])} "
+              f"monitored KPIs; {len(es['kpis_in_control'])} in control.")
     print("\nDecision cards:")
     for c in analysis["decision_cards"]:
         print(f"  - {c}")

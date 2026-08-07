@@ -19,7 +19,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import metrics
+from . import anomaly, metrics
 from .dataset import load, monthly_series
 from .forecast import select_and_forecast
 from .inventory import reorder_recommendation
@@ -48,6 +48,7 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     rev_bridge = revenue_bridge(rows)
     conc = metrics.concentration(rows)
     expenditure = spend_summary(rows)
+    kpi_alerts = anomaly.kpi_exceptions(rows)
 
     # headline revenue forecast (total monthly revenue) with CV model selection
     rev_series = [v for _, v in monthly_series(rows, "revenue_eur")]
@@ -75,13 +76,13 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     reorders.sort(key=lambda d: -d["recommended_order_qty"])
 
     cards = _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc,
-                            expenditure, rev_bridge)
+                            expenditure, rev_bridge, kpi_alerts)
     return {
         "kpi": kpi, "growth": grow, "regions": regions, "categories": categories,
         "channels": channels, "reps": reps, "abc_xyz": abcxyz,
         "rfm_segments": seg_counts, "rfm_top": rfm_all[:10],
         "margin_bridge": bridge, "revenue_bridge": rev_bridge,
-        "concentration": conc, "expenditure": expenditure,
+        "concentration": conc, "expenditure": expenditure, "kpi_alerts": kpi_alerts,
         "revenue_forecast": {"winner": rev_fc.winner, "cv_mase": rev_fc.cv_mase,
                              "history": rev_series, "forecast": rev_fc.values,
                              "leaderboard": [vars(r) for r in rev_fc.leaderboard]},
@@ -91,8 +92,20 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
 
 
 def _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc,
-                    expenditure=None, rev_bridge=None) -> list[str]:
+                    expenditure=None, rev_bridge=None, kpi_alerts=None) -> list[str]:
     cards = []
+    if kpi_alerts and kpi_alerts["summary"]["total_alerts"]:
+        s = kpi_alerts["summary"]
+        worst = kpi_alerts["alerts"][0]
+        hit = ", ".join(sorted({a["label"] for a in kpi_alerts["alerts"]}))
+        wv = (f"{worst['value']:,.0f} EUR" if worst["unit"] == "EUR"
+              else f"{worst['value']:.2f}%")
+        cards.append(
+            f"KPI exception monitor: {s['total_alerts']} out-of-control month(s) "
+            f"({s['unfavorable']} unfavourable) on {hit} vs robust "
+            f"{kpi_alerts['k_sigma']:.1f}-sigma control limits - worst {worst['label']} "
+            f"{wv} at {worst['month']} (modified z {worst['modified_z']:+.1f}); "
+            f"{len(s['kpis_in_control'])} monitored KPIs in control.")
     if rev_bridge and rev_bridge.get("available"):
         drivers = {"price": rev_bridge["price_effect_eur"],
                    "volume": rev_bridge["volume_effect_eur"],
@@ -168,6 +181,12 @@ def write_deliverables(analysis: dict[str, Any], outdir: Path | None = None) -> 
     ppng = _write_pvm_chart(analysis, out)
     if ppng:
         made.append(ppng)
+    csvg = _write_control_chart_svg(analysis, out)
+    if csvg:
+        made.append(csvg)
+    cpng = _write_control_chart_chart(analysis, out)
+    if cpng:
+        made.append(cpng)
     return made
 
 
@@ -294,6 +313,37 @@ def _write_markdown(a: dict, out: Path) -> str:
                     f"| {r['region']} | {r['leakage_eur']:,.0f} | {r['excess_eur']:,.0f} | "
                     f"{r['leakage_pct_of_revenue']:.1f}% | "
                     f"{r['orders_above_policy_pct']:.0f}% |")
+    ex = a.get("kpi_alerts")
+    if ex:
+        s = ex["summary"]
+        lines += ["", "## 9. KPI exceptions — statistical control monitor",
+                  f"- {anomaly.plain_language(ex)}",
+                  f"- Method: {ex['method']}, k = {ex['k_sigma']:.1f}; "
+                  f"period {ex['period']} ({ex['months']} months).",
+                  "- Scope note: the monitored KPIs are the quality/service/commercial "
+                  "ratios plus AOV, where a monthly control chart is trustworthy. The "
+                  "strongly-seasonal volume series (revenue, orders) are intentionally "
+                  "excluded from level-anomaly detection on 24 points — their movement is "
+                  "covered by the out-of-sample forecast CV and the revenue bridge."]
+        if ex["alerts"]:
+            lines += ["",
+                      "| KPI | Month | Value | Centre | Nearest limit | Modified z | "
+                      "Direction | Read | Severity |",
+                      "|---|---|--:|--:|--:|--:|:--:|:--:|:--:|"]
+            for al in ex["alerts"]:
+                unit = "" if al["unit"] == "EUR" else al["unit"]
+                lim = al["lower_limit"] if al["direction"] == "below" else al["upper_limit"]
+                read = "—" if al["favorable"] is None else (
+                    "favourable" if al["favorable"] else "unfavourable")
+                lines.append(
+                    f"| {al['label']} | {al['month']} | {al['value']:,.2f}{unit} | "
+                    f"{al['center']:,.2f}{unit} | {lim:,.2f}{unit} | "
+                    f"{al['modified_z']:+.2f} | {al['direction']} | {read} | "
+                    f"{al['severity']} |")
+        if s["kpis_in_control"]:
+            lines += ["", f"*In control this period: {', '.join(s['kpis_in_control'])} "
+                          f"(no month outside its robust control limits). See "
+                          f"`kpi_control_chart.svg`.*"]
     (out / "management_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return "management_report.md"
 
@@ -378,6 +428,27 @@ def _write_xlsx(a: dict, out: Path) -> str | None:
             s.append([])
             s.append(["Policy threshold %", dd["policy_discount_pct"]])
             s.append(["Note", dd["policy_note"]])
+    ex = a.get("kpi_alerts")
+    if ex:
+        rows_x = [{**al, "favorable": ("" if al["favorable"] is None
+                                       else ("favourable" if al["favorable"]
+                                             else "unfavourable"))}
+                  for al in ex["alerts"]]
+        sheet("KPI exceptions", rows_x,
+              ["label", "month", "value", "center", "lower_limit", "upper_limit",
+               "modified_z", "direction", "favorable", "severity"])
+        s = wb["KPI exceptions"]
+        s.append([])
+        s.append(["Control limits (median +/- k*MAD/0.6745), k =", ex["k_sigma"]])
+        s.append(["KPI", "centre", "lower_limit", "upper_limit", "months_flagged"])
+        for chart in ex["series"].values():
+            s.append([chart["label"], chart["center"], chart["lower_limit"],
+                      chart["upper_limit"], chart["n_flagged"]])
+        s.append([])
+        s.append(["Method", ex["method"]])
+        s.append(["Note", "Volume series (revenue, orders) excluded from level-anomaly "
+                          "detection on 24 points; see forecast CV + revenue bridge. "
+                          "Synthetic data."])
     wb.save(out / "kpi_workbook.xlsx")
     return "kpi_workbook.xlsx"
 
@@ -677,6 +748,176 @@ def render_pvm_svg(rb: dict[str, Any]) -> str:
         f'y-axis zoomed to the delta band (synthetic data)</text>')
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
+
+
+def _unit_suffix(unit: str) -> str:
+    return "%" if unit == "%" else ""
+
+
+def _chart_to_render(ex: dict[str, Any]) -> dict[str, Any]:
+    """Pick the KPI control chart worth drawing: the one with the most exceptions,
+    else the first monitored KPI (so the deliverable is always produced)."""
+    series = ex["series"]
+    flagged = [c for c in series.values() if c["n_flagged"] > 0]
+    if flagged:
+        return max(flagged, key=lambda c: (c["n_flagged"], c["kpi"]))
+    return next(iter(series.values()))
+
+
+def render_control_chart_svg(chart: dict[str, Any], k: float = anomaly.DEFAULT_K) -> str:
+    """One KPI's robust control chart as a self-contained, offline SVG string —
+    no server, no CDN, no external asset references, pure stdlib.
+
+    The centre line, the two control limits and every monthly point come from the
+    `control_chart_steps` model the tests assert against, and the numeric labels
+    (centre, limits, each out-of-control value) are the exact figures to two
+    decimals, so the picture can be reconciled to source in a test.
+    """
+    st = anomaly.control_chart_steps(chart)
+    pts = st["points"]
+    unit = _unit_suffix(st["unit"])
+    center, lo, hi = st["center"], st["lower_limit"], st["upper_limit"]
+    vals = [p["value"] for p in pts]
+    ymin = min([lo, *vals])
+    ymax = max([hi, *vals])
+    pad = (ymax - ymin) * 0.16 or 1.0
+    ymin, ymax = ymin - pad, ymax + pad
+
+    W, H = 940, 360
+    m = {"t": 58, "r": 128, "b": 52, "l": 66}
+    iw, ih = W - m["l"] - m["r"], H - m["t"] - m["b"]
+    n = len(pts)
+
+    def x(i: int) -> float:
+        return m["l"] + (iw * i / (n - 1) if n > 1 else iw / 2)
+
+    def y(v: float) -> float:
+        return m["t"] + ih - (v - ymin) / (ymax - ymin) * ih
+
+    grey, ink, red, blue, mute = "#8b8f99", "#0b0b0b", "#e34948", "#2f6bff", "#898781"
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" role="img" '
+        f'aria-label="{_svg_esc(st["label"])} statistical control chart with robust '
+        f'centre line and control limits, out-of-control months highlighted" '
+        f'font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">',
+        f'<rect x="0" y="0" width="{W}" height="{H}" fill="#fcfcfb"/>',
+        f'<text x="{m["l"]}" y="26" font-size="15" font-weight="700" fill="{ink}">'
+        f'{_svg_esc(st["label"])} &#8212; statistical control monitor</text>',
+        f'<text x="{m["l"]}" y="44" font-size="12" fill="#52514e">'
+        f'Robust control limits: median &#177; {k:.1f}&#183;MAD/0.6745 '
+        f'(Iglewicz&#8211;Hoaglin) &#183; {n} months</text>',
+    ]
+    # y gridlines + axis ticks
+    for t in range(5):
+        val = ymin + (ymax - ymin) * t / 4
+        yy = y(val)
+        parts.append(f'<line x1="{m["l"]}" y1="{yy:.1f}" x2="{m["l"] + iw}" y2="{yy:.1f}" '
+                     f'stroke="#e1e0d9" stroke-width="1"/>')
+        parts.append(f'<text x="{m["l"] - 8}" y="{yy + 3:.1f}" text-anchor="end" '
+                     f'font-size="11" fill="{mute}">{val:,.1f}{unit}</text>')
+
+    # control-limit band + centre line, each labelled with its exact value
+    parts.append(f'<rect x="{m["l"]}" y="{y(hi):.1f}" width="{iw}" '
+                 f'height="{max(1.0, y(lo) - y(hi)):.1f}" fill="#2f6bff" opacity="0.05"/>')
+    for val, lab, col, dash in ((hi, f'UCL {hi:,.2f}{unit}', red, "5 4"),
+                                (center, f'&#956; {center:,.2f}{unit}', grey, ""),
+                                (lo, f'LCL {lo:,.2f}{unit}', red, "5 4")):
+        da = f' stroke-dasharray="{dash}"' if dash else ""
+        parts.append(f'<line x1="{m["l"]}" y1="{y(val):.1f}" x2="{m["l"] + iw}" '
+                     f'y2="{y(val):.1f}" stroke="{col}" stroke-width="1.4"{da}/>')
+        parts.append(f'<text x="{m["l"] + iw + 8}" y="{y(val) + 3:.1f}" font-size="11" '
+                     f'font-weight="600" fill="{col}">{lab}</text>')
+
+    # the series polyline
+    poly = " ".join(f"{x(i):.1f},{y(p['value']):.1f}" for i, p in enumerate(pts))
+    parts.append(f'<polyline points="{poly}" fill="none" stroke="{blue}" stroke-width="1.6"/>')
+
+    # month points; out-of-control ones highlighted with their exact value
+    for i, p in enumerate(pts):
+        cx, cy = x(i), y(p["value"])
+        if p["flagged"]:
+            parts.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="5" fill="{red}"/>')
+            above = p["value"] >= center
+            ly = cy - 9 if above else cy + 17
+            parts.append(f'<text x="{cx:.1f}" y="{ly:.1f}" text-anchor="middle" '
+                         f'font-size="10.5" font-weight="650" fill="{red}">'
+                         f'{p["value"]:,.2f}{unit}</text>')
+        else:
+            parts.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="2.6" fill="{blue}"/>')
+
+    # sparse month labels along the x-axis (every third)
+    for i in range(0, n, 3):
+        parts.append(f'<text x="{x(i):.1f}" y="{H - 30}" text-anchor="middle" '
+                     f'font-size="9.5" fill="{mute}">{_svg_esc(pts[i]["month"])}</text>')
+    flagged = sum(1 for p in pts if p["flagged"])
+    parts.append(
+        f'<text x="{m["l"]}" y="{H - 8}" font-size="11" fill="{mute}">'
+        f'{flagged} of {n} months out of control (red) &#183; centre = median, '
+        f'limits robust to outliers &#183; synthetic data</text>')
+    parts.append("</svg>")
+    return "\n".join(parts) + "\n"
+
+
+def _write_control_chart_svg(a: dict, out: Path) -> str | None:
+    """Offline SVG KPI control chart (stdlib only — always produced)."""
+    ex = a.get("kpi_alerts")
+    if not ex or not ex.get("series"):
+        return None
+    chart = _chart_to_render(ex)
+    (out / "kpi_control_chart.svg").write_text(
+        render_control_chart_svg(chart, ex["k_sigma"]), encoding="utf-8")
+    return "kpi_control_chart.svg"
+
+
+def _write_control_chart_chart(a: dict, out: Path) -> str | None:
+    """Matplotlib PNG of the same KPI control chart (optional — same model as the
+    SVG, so the two cannot diverge). Skipped if matplotlib is absent."""
+    ex = a.get("kpi_alerts")
+    if not ex or not ex.get("series"):
+        return None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return None
+    chart = _chart_to_render(ex)
+    st = anomaly.control_chart_steps(chart)
+    pts = st["points"]
+    unit = _unit_suffix(st["unit"])
+    xs = list(range(len(pts)))
+    ys = [p["value"] for p in pts]
+    red, blue, grey = "#e34948", "#2f6bff", "#8b8f99"
+    fig, ax = plt.subplots(figsize=(11, 4.4))
+    ax.axhspan(st["lower_limit"], st["upper_limit"], color=blue, alpha=0.05)
+    ax.axhline(st["center"], color=grey, lw=1.4, label=f"centre {st['center']:,.2f}{unit}")
+    ax.axhline(st["upper_limit"], color=red, lw=1.3, ls="--",
+               label=f"UCL {st['upper_limit']:,.2f}{unit}")
+    ax.axhline(st["lower_limit"], color=red, lw=1.3, ls="--",
+               label=f"LCL {st['lower_limit']:,.2f}{unit}")
+    ax.plot(xs, ys, color=blue, lw=1.6, zorder=2)
+    flag_x = [i for i, p in enumerate(pts) if p["flagged"]]
+    flag_y = [pts[i]["value"] for i in flag_x]
+    ax.scatter([i for i in xs if i not in flag_x],
+               [ys[i] for i in xs if i not in flag_x], s=16, color=blue, zorder=3)
+    ax.scatter(flag_x, flag_y, s=54, color=red, zorder=4, label="out of control")
+    for i, v in zip(flag_x, flag_y, strict=True):
+        ax.annotate(f"{v:,.2f}{unit}", (i, v), textcoords="offset points",
+                    xytext=(0, -14), ha="center", fontsize=8.5, color=red)
+    ax.set_xticks(xs[::3])
+    ax.set_xticklabels([pts[i]["month"] for i in xs[::3]], fontsize=8, rotation=45,
+                       ha="right")
+    ax.set_ylabel(st["label"])
+    ax.set_title(f"{st['label']} — robust control chart "
+                 f"({sum(1 for p in pts if p['flagged'])} of {len(pts)} months out of control)",
+                 fontsize=11)
+    ax.legend(fontsize=8, frameon=False, loc="lower left", ncol=2)
+    ax.grid(axis="y", alpha=0.3)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    fig.savefig(out / "kpi_control_chart.png", dpi=140)
+    plt.close(fig)
+    return "kpi_control_chart.png"
 
 
 def _write_pvm_svg(a: dict, out: Path) -> str | None:

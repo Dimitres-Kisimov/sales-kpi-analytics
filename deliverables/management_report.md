@@ -10,6 +10,7 @@
 - Discount leakage: 10.7% of list value
 
 ## 2. What the numbers say (decision cards)
+- KPI exception monitor: 6 out-of-control month(s) (6 unfavourable) on OTIF % vs robust 3.5-sigma control limits - worst OTIF % 79.04% at 2025-09 (modified z -6.1); 4 monitored KPIs in control.
 - Revenue bridge (YoY): Revenue rose €722,407 year-on-year: price +€16,048, volume +€1,381,732, mix −€675,373. Volume was the biggest tailwind (+1,381,732 EUR); mix the biggest drag (-675,373 EUR).
 - Discount drill-down: Berg (Nordics) leads the leakage table - 268,810 EUR vs list, 75,779 EUR of it above the 10% policy assumption - review discount authority there first.
 - Revenue is up 6.8% YoY; gross margin sits at 22.0%.
@@ -91,3 +92,19 @@ Top 5 reps by excess-over-policy (see `leakage_waterfall.png`):
 | Nordics | 496,103 | 134,751 | 12.3% | 35% |
 | East | 522,793 | 130,203 | 11.7% | 30% |
 | West | 465,333 | 117,992 | 12.2% | 33% |
+
+## 9. KPI exceptions — statistical control monitor
+- KPI monitor: 6 exceptions in 24 months — 6 unfavourable, 0 favourable (OTIF %); worst OTIF % at 2025-09 (79.04%, z=-6.1). 4 KPIs in control.
+- Method: robust control chart (median ± k·MAD/0.6745, Iglewicz–Hoaglin modified z), k = 3.5; period 2024-01..2025-12 (24 months).
+- Scope note: the monitored KPIs are the quality/service/commercial ratios plus AOV, where a monthly control chart is trustworthy. The strongly-seasonal volume series (revenue, orders) are intentionally excluded from level-anomaly detection on 24 points — their movement is covered by the out-of-sample forecast CV and the revenue bridge.
+
+| KPI | Month | Value | Centre | Nearest limit | Modified z | Direction | Read | Severity |
+|---|---|--:|--:|--:|--:|:--:|:--:|:--:|
+| OTIF % | 2025-09 | 79.04% | 86.46% | 82.18% | -6.07 | below | unfavourable | severe |
+| OTIF % | 2024-09 | 80.30% | 86.46% | 82.18% | -5.04 | below | unfavourable | elevated |
+| OTIF % | 2025-10 | 80.46% | 86.46% | 82.18% | -4.91 | below | unfavourable | elevated |
+| OTIF % | 2024-05 | 81.01% | 86.46% | 82.18% | -4.46 | below | unfavourable | elevated |
+| OTIF % | 2024-10 | 81.52% | 86.46% | 82.18% | -4.04 | below | unfavourable | elevated |
+| OTIF % | 2025-05 | 81.78% | 86.46% | 82.18% | -3.83 | below | unfavourable | elevated |
+
+*In control this period: Gross margin %, Returns rate %, Discount leakage %, Average order value (no month outside its robust control limits). See `kpi_control_chart.svg`.*

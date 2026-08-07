@@ -36,8 +36,27 @@ The same drill-down is also expressed as **parameterized SQL views**
 `leakage_waterfall.sql` take a `:policy_pct` parameter and run against the in-memory
 SQLite table, with cross-check tests asserting they equal the Python engine to the
 cent. And [`docs/QUESTIONS_THIS_ANSWERS.md`](docs/QUESTIONS_THIS_ANSWERS.md) maps
-15 concrete business questions to the exact metric or view that answers each, with
+16 concrete business questions to the exact metric or view that answers each, with
 an honest note on every assumption.
+
+**Exception monitoring — what actually broke this year:** a dashboard full of
+numbers doesn't tell leadership *what to look at*, so there's now a KPI exception
+monitor (`saleskpi.anomaly`) that runs each monthly KPI series through a **robust
+statistical control chart** — centre = the median, limits = median ± 3.5·MAD/0.6745
+(the Iglewicz–Hoaglin modified-z estimator, so one bad month can't inflate its own
+limits and hide). On this data it flags a single, causal, recurring exception:
+**OTIF breaks its lower control limit (82.18%) in six of the 24 months — every May,
+September and October** — the peak-demand months, worst September 2025 at **79.04%**
+(modified z −6.07). The other four monitored KPIs (gross-margin %, returns %,
+discount-leakage %, AOV) stay **in control** all period. Each alert is
+polarity-aware (it knows returns rising is bad but margin rising is good), the
+worst-first alert list feeds a decision card and a QBR section, and the control
+chart is rendered as an offline SVG whose centre, limits and flagged values are
+read back in a test and asserted equal to the source (screen == source). Honest
+scope: the strongly-seasonal *volume* series (revenue, orders) are deliberately
+**not** run through a level-anomaly detector — 24 monthly points aren't enough to
+estimate a per-month seasonal profile without false alarms, so revenue movement is
+left to the out-of-sample forecast CV and the price/volume/mix bridge.
 
 The analytics core is **pure Python standard library** — `csv`, `sqlite3`,
 `statistics`, `json`. No pandas, no numpy. That was a deliberate constraint:
@@ -86,6 +105,12 @@ discount-leakage views (see [`sql/`](sql/README.md)).
   row that ties out, plus an offline SVG waterfall whose euro labels are asserted
   equal to the source). Distinct from the margin bridge below — revenue teams and
   margin teams ask different questions.
+- **`kpi_control_chart.svg`** (and `.png`) — the **KPI exception monitor's** control
+  chart for the KPI with the most out-of-control months (OTIF on this data): the
+  monthly series, the robust centre line and the ± limits, with the flagged months
+  highlighted and labelled with their exact value. Rendered offline (stdlib) from
+  the same model the tests assert against, so the picture can't drift from the
+  numbers.
 
 ## How the pieces fit
 
@@ -97,6 +122,7 @@ discount-leakage views (see [`sql/`](sql/README.md)).
 | `forecast.py` | 7 forecasters, MASE/RMSE/…, rolling-origin CV, model selection |
 | `inventory.py` | safety stock, reorder point, GMROI, reorder recommendations |
 | `spend.py` | COGS split, discount leakage + rep/region drill-down, returns cost, cost-to-serve |
+| `anomaly.py` | KPI exception monitor — robust control charts (median ± k·MAD/0.6745), polarity-aware alerts |
 | `sqlq.py` | loads the data into in-memory SQLite for the SQL queries |
 | `report.py` | runs the pipeline and writes the deliverables |
 
@@ -125,6 +151,12 @@ and there's a full QBR walkthrough in [docs/USE_CASE.md](docs/USE_CASE.md).
   checked against the source.
 - **The returns cost is a model, not a measurement** — `rate × avg cost`, because
   the synthetic data doesn't carry restocking cost. Labelled as such everywhere.
+- **The exception monitor is scoped honestly.** Robust control charts are the right
+  tool for the quality/service ratios, but I don't pretend 24 monthly points are
+  enough to catch *level* anomalies in the seasonal volume series — so revenue and
+  orders are left out of the detector (the forecast CV and the revenue bridge own
+  that), and the module says so. The OTIF exceptions it surfaces are a genuine
+  detection, on synthetic data whose seasonality is clearly labelled.
 - **The SQL↔Python cross-check** is my favourite test: the revenue-by-region
   rollup is computed both ways and asserted equal to the cent, so the two engines
   can't drift apart silently.
