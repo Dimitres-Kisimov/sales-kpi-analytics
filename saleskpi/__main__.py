@@ -65,6 +65,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nKPI exception monitor: {es['total_alerts']} out-of-control month(s) "
               f"({es['unfavorable']} unfavourable) across {len(ex['monitored_kpis'])} "
               f"monitored KPIs; {len(es['kpis_in_control'])} in control.")
+    at = analysis.get("target_attainment")
+    if at and at.get("available"):
+        print(f"\nPacing to plan ({at['fiscal_year']}, as of {at['as_of']}): projected "
+              f"{at['projected_full_year_eur']:,.0f} EUR = {at['projected_attainment_pct']:.1f}% "
+              f"of the {at['annual_target_eur']:,.0f} EUR plan "
+              f"({int(at['interval'] * 100)}% interval {at['attainment_low_pct']:.0f}-"
+              f"{at['attainment_high_pct']:.0f}%) - {at['status']}.")
     print("\nDecision cards:")
     for c in analysis["decision_cards"]:
         print(f"  - {c}")

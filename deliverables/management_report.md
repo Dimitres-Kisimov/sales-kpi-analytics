@@ -10,6 +10,7 @@
 - Discount leakage: 10.7% of list value
 
 ## 2. What the numbers say (decision cards)
+- Pacing to plan (FY2025, as of 2025-09, 9/12 mo): projected 10,911,670 EUR = 96% of the 11,400,851 EUR plan (8% assumed) - behind plan — at risk; 80% interval 94-97% of plan (gap -489,181 EUR). Modelled projection, not a guarantee.
 - KPI exception monitor: 6 out-of-control month(s) (6 unfavourable) on OTIF % vs robust 3.5-sigma control limits - worst OTIF % 79.04% at 2025-09 (modified z -6.1); 4 monitored KPIs in control.
 - Revenue bridge (YoY): Revenue rose €722,407 year-on-year: price +€16,048, volume +€1,381,732, mix −€675,373. Volume was the biggest tailwind (+1,381,732 EUR); mix the biggest drag (-675,373 EUR).
 - Discount drill-down: Berg (Nordics) leads the leakage table - 268,810 EUR vs list, 75,779 EUR of it above the 10% policy assumption - review discount authority there first.
@@ -108,3 +109,13 @@ Top 5 reps by excess-over-policy (see `leakage_waterfall.png`):
 | OTIF % | 2025-05 | 81.78% | 86.46% | 82.18% | -3.83 | below | unfavourable | elevated |
 
 *In control this period: Gross margin %, Returns rate %, Discount leakage %, Average order value (no month outside its robust control limits). See `kpi_control_chart.svg`.*
+
+## 10. Target attainment & run-rate to plan
+- As of 2025-09 (Q3, 9/12 months), FY2025 is projected to land at €10,911,670 — 95.7% of the €11,400,851 plan (−€489,181); status: behind plan — at risk.
+- Standing at **2025-09** (9 of 12 months of FY2025): YTD revenue **8,252,457 EUR** vs a seasonally-paced plan-to-date of 8,528,901 EUR (pace index 0.97; behind the plan curve by 276,444 EUR).
+- Plan: **11,400,851 EUR** — *assumed* prior-FY revenue (10,556,343 EUR) × (1 + 8%); the dataset carries no budget, so attainment moves with this rate.
+- Projection (model **seasonal_naive**, remaining 3 mo): full year lands at **10,911,670 EUR** = **95.7%** of plan (gap **-489,181 EUR**). Simple annualise-the-YTD run-rate for comparison: 11,003,276 EUR.
+- 80% prediction interval: **10,769,899 – 11,053,441 EUR** (94.5–97.0% of plan), from the model's 9-fold walk-forward errors (sigma 63,869 EUR/mo, aggregated over the remaining months). A modelled band, not a guarantee.
+- **Back-check** (the fiscal year is closed in this synthetic history): the realised full year was **11,278,750 EUR** (98.9% of plan) — **outside** the projected 80% interval, as ~1 year in 5 is expected to be, and here because the final quarter ran materially hotter than the prior year the seasonal-naive model repeats. See `pacing_bullet.svg`.
+
+*Pacing is out-of-sample and honest: the projection uses the same rolling-origin-CV-selected forecaster as the rest of the toolkit, the interval is empirical, and the plan is a stated assumption. Synthetic data.*

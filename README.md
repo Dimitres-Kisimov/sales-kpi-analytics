@@ -58,6 +58,23 @@ scope: the strongly-seasonal *volume* series (revenue, orders) are deliberately
 estimate a per-month seasonal profile without false alarms, so revenue movement is
 left to the out-of-sample forecast CV and the price/volume/mix bridge.
 
+**Pacing to plan — are we on track to hit the number?** The newest layer
+(`saleskpi.pacing`) is the between-QBR question every sales leader asks. Standing at
+the end of **Q3 FY2025**, it paces year-to-date revenue against a *seasonally-weighted*
+plan-to-date (not a naïve straight line), then **projects the full-year landing** by
+forecasting the remaining quarter with the same rolling-origin-CV-selected model the
+toolkit uses everywhere — and puts an **honest prediction interval** on it, built from
+that model's own out-of-sample backtest errors, not a textbook σ. On this data the
+seasonal-naive run-rate projects **€10.91M — 95.7% of the assumed €11.40M plan** (+8%
+on FY2024, labelled an assumption), i.e. **~€0.49M behind plan**, 80% interval
+**€10.77M–€11.05M**. Because the synthetic year has since closed, the module shows the
+**back-check**: the realised year landed at **€11.28M (98.9% of plan)** — just *above*
+the projected band, an honest miss because the final quarter ran hotter than the prior
+year the seasonal-naive model repeats (an 80% interval is meant to miss ~1 year in 5).
+It's rendered as a Stephen-Few **bullet chart** (`deliverables/pacing_bullet.{svg,png}`)
+whose euro labels are asserted equal to the computed figures. A *modelled* projection,
+not a promise — and it says so.
+
 The analytics core is **pure Python standard library** — `csv`, `sqlite3`,
 `statistics`, `json`. No pandas, no numpy. That was a deliberate constraint:
 partly to keep it dependency-light, partly because writing MASE, Croston's method
@@ -111,6 +128,11 @@ discount-leakage views (see [`sql/`](sql/README.md)).
   highlighted and labelled with their exact value. Rendered offline (stdlib) from
   the same model the tests assert against, so the picture can't drift from the
   numbers.
+- **`pacing_bullet.svg`** (and `.png`) — the **sales-pacing bullet chart**: YTD actual
+  plus the projected remaining months as one measure bar, read against the plan
+  target, with the projection's prediction interval as a whisker and the realised
+  full year as a closed-year back-check marker. Offline stdlib SVG; its euro labels
+  are asserted equal to the computed pacing figures to the cent.
 
 ## How the pieces fit
 
@@ -123,6 +145,7 @@ discount-leakage views (see [`sql/`](sql/README.md)).
 | `inventory.py` | safety stock, reorder point, GMROI, reorder recommendations |
 | `spend.py` | COGS split, discount leakage + rep/region drill-down, returns cost, cost-to-serve |
 | `anomaly.py` | KPI exception monitor — robust control charts (median ± k·MAD/0.6745), polarity-aware alerts |
+| `pacing.py` | target attainment + run-rate projection to fiscal-year-end, with an empirical prediction interval (bullet chart) |
 | `sqlq.py` | loads the data into in-memory SQLite for the SQL queries |
 | `report.py` | runs the pipeline and writes the deliverables |
 
@@ -160,13 +183,21 @@ and there's a full QBR walkthrough in [docs/USE_CASE.md](docs/USE_CASE.md).
 - **The SQL↔Python cross-check** is my favourite test: the revenue-by-region
   rollup is computed both ways and asserted equal to the cent, so the two engines
   can't drift apart silently.
+- **The pacing projection is deliberately conservative, and I show it.** As of Q3 the
+  seasonal-naive run-rate projected FY2025 a touch under the realised year — the model
+  repeats last year, so it under-calls a growing final quarter. The realised value
+  landing just *above* the 80% interval is exactly what an 80% interval is: right about
+  four years in five. The module reports that back-check rather than quietly widening
+  the band, because a prediction interval that always contains the answer is lying.
 
 ## What I'd add next
 
 Real (or longer) history so the smarter forecasters can actually earn their keep;
-SKU-grain instead of category-grain forecasting; prediction intervals on the
-forecast; and wiring the reorder recommendations to an actual lead-time
-distribution per supplier instead of a flat one-month assumption.
+SKU-grain instead of category-grain forecasting; prediction intervals on *every*
+forecast series (the pacing projection already carries an empirical one — extending it
+to the per-category demand forecasts is the next step); and wiring the reorder
+recommendations to an actual lead-time distribution per supplier instead of a flat
+one-month assumption.
 
 ## Data & scope
 

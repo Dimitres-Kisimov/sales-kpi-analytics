@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 340" role="img" aria-label="FY2025 sales pacing bullet chart: year-to-date actual plus projected remaining revenue against the plan target, with a 80% prediction interval and the realised landing" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+<rect x="0" y="0" width="940" height="340" fill="#fcfcfb"/>
+<text x="28" y="28" font-size="15" font-weight="700" fill="#0b0b0b">FY2025 &#8212; sales pacing to plan</text>
+<text x="28" y="48" font-size="12" fill="#52514e">As of 2025-09 &#183; 9/12 months &#183; projection model seasonal_naive</text>
+<text x="916" y="30" text-anchor="end" font-size="22" font-weight="750" fill="#e34948">95.7% of plan</text>
+<text x="916" y="50" text-anchor="end" font-size="12" fill="#e34948">behind plan — at risk</text>
+<line x1="28.0" y1="166" x2="28.0" y2="230" stroke="#e1e0d9" stroke-width="1"/>
+<text x="28.0" y="332" text-anchor="middle" font-size="10.5" fill="#898781">&#8364;0.0M</text>
+<line x1="250.0" y1="166" x2="250.0" y2="230" stroke="#e1e0d9" stroke-width="1"/>
+<text x="250.0" y="332" text-anchor="middle" font-size="10.5" fill="#898781">&#8364;3.1M</text>
+<line x1="472.0" y1="166" x2="472.0" y2="230" stroke="#e1e0d9" stroke-width="1"/>
+<text x="472.0" y="332" text-anchor="middle" font-size="10.5" fill="#898781">&#8364;6.2M</text>
+<line x1="694.0" y1="166" x2="694.0" y2="230" stroke="#e1e0d9" stroke-width="1"/>
+<text x="694.0" y="332" text-anchor="middle" font-size="10.5" fill="#898781">&#8364;9.2M</text>
+<line x1="916.0" y1="166" x2="916.0" y2="230" stroke="#e1e0d9" stroke-width="1"/>
+<text x="916.0" y="332" text-anchor="middle" font-size="10.5" fill="#898781">&#8364;12.3M</text>
+<rect x="28.0" y="172" width="888" height="52" fill="#ecebe4" rx="4"/>
+<rect x="28.0" y="172" width="595.2" height="52" fill="#2f6bff" rx="4"/>
+<rect x="623.2" y="172" width="191.8" height="52" fill="#9db8f0"/>
+<line x1="804.7" y1="198.0" x2="825.2" y2="198.0" stroke="#0b0b0b" stroke-width="2"/>
+<line x1="804.7" y1="190.0" x2="804.7" y2="206.0" stroke="#0b0b0b" stroke-width="2"/>
+<line x1="825.2" y1="190.0" x2="825.2" y2="206.0" stroke="#0b0b0b" stroke-width="2"/>
+<line x1="850.2" y1="158" x2="850.2" y2="238" stroke="#0b0b0b" stroke-width="2.5"/>
+<text x="850.2" y="152" text-anchor="end" font-size="11.5" font-weight="650" fill="#0b0b0b">Plan &#8364;11,400,850.84</text>
+<text x="814.9" y="132" text-anchor="end" font-size="11.5" font-weight="650" fill="#2f6bff">Projected FY &#8364;10,911,669.85</text>
+<text x="325.6" y="244" text-anchor="middle" font-size="11" fill="#0b0b0b">YTD &#8364;8,252,457.12</text>
+<text x="719.1" y="244" text-anchor="middle" font-size="10.5" fill="#52514e">+&#8364;2,659,212.73 projected</text>
+<line x1="841.4" y1="164" x2="841.4" y2="232" stroke="#7a3ea8" stroke-width="2" stroke-dasharray="4 3"/>
+<text x="841.4" y="264" text-anchor="end" font-size="11" font-weight="600" fill="#7a3ea8">Realised &#8364;11,278,750.47</text>
+<text x="814.9" y="286" text-anchor="middle" font-size="10.5" fill="#52514e">80% interval &#8364;10,769,898.75 &#8211; &#8364;11,053,440.95</text>
+<text x="28" y="314" font-size="10.5" fill="#898781">Plan is an assumed target &#183; projection &amp; interval are modelled (out-of-sample), not a guarantee &#183; realised shown as a closed-year back-check &#183; synthetic data</text>
+</svg>

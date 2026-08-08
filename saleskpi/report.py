@@ -19,7 +19,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import anomaly, metrics
+from . import anomaly, metrics, pacing
 from .dataset import load, monthly_series
 from .forecast import select_and_forecast
 from .inventory import reorder_recommendation
@@ -28,6 +28,19 @@ from .spend import spend_summary, waterfall_steps
 
 OUT = Path(__file__).resolve().parents[1] / "deliverables"
 LEAD_MONTHS = 1.0          # modeling assumption: ~1 month supplier replenishment lead
+
+
+def _pacing_as_of(rows: list[dict[str, Any]]) -> str:
+    """The month the shipped pacing snapshot stands at: the end of Q3 of the current
+    fiscal year, so the deliverable exercises a real in-year projection with three
+    months still to run — the standard "how are we tracking?" checkpoint. Falls back
+    to the latest month present when the data doesn't reach Q3 of its final year."""
+    data_months = sorted({r["date"][:7] for r in rows})
+    if not data_months:
+        return ""
+    _, fy_months = pacing.fiscal_months(data_months[-1])
+    q3_end = fy_months[8]        # 9th fiscal month = end of Q3
+    return q3_end if q3_end in data_months else data_months[-1]
 
 
 def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -49,6 +62,7 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     conc = metrics.concentration(rows)
     expenditure = spend_summary(rows)
     kpi_alerts = anomaly.kpi_exceptions(rows)
+    attainment = pacing.target_attainment(rows, as_of=_pacing_as_of(rows))
 
     # headline revenue forecast (total monthly revenue) with CV model selection
     rev_series = [v for _, v in monthly_series(rows, "revenue_eur")]
@@ -76,13 +90,14 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     reorders.sort(key=lambda d: -d["recommended_order_qty"])
 
     cards = _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc,
-                            expenditure, rev_bridge, kpi_alerts)
+                            expenditure, rev_bridge, kpi_alerts, attainment)
     return {
         "kpi": kpi, "growth": grow, "regions": regions, "categories": categories,
         "channels": channels, "reps": reps, "abc_xyz": abcxyz,
         "rfm_segments": seg_counts, "rfm_top": rfm_all[:10],
         "margin_bridge": bridge, "revenue_bridge": rev_bridge,
         "concentration": conc, "expenditure": expenditure, "kpi_alerts": kpi_alerts,
+        "target_attainment": attainment,
         "revenue_forecast": {"winner": rev_fc.winner, "cv_mase": rev_fc.cv_mase,
                              "history": rev_series, "forecast": rev_fc.values,
                              "leaderboard": [vars(r) for r in rev_fc.leaderboard]},
@@ -92,8 +107,20 @@ def analyze(rows: list[dict[str, Any]] | None = None) -> dict[str, Any]:
 
 
 def _decision_cards(kpi, grow, bridge, abcxyz, seg_counts, regions, conc, rev_fc,
-                    expenditure=None, rev_bridge=None, kpi_alerts=None) -> list[str]:
+                    expenditure=None, rev_bridge=None, kpi_alerts=None,
+                    attainment=None) -> list[str]:
     cards = []
+    if attainment and attainment.get("available"):
+        at = attainment
+        cards.append(
+            f"Pacing to plan ({at['fiscal_year']}, as of {at['as_of']}, "
+            f"{at['months_elapsed']}/12 mo): projected {at['projected_full_year_eur']:,.0f} EUR "
+            f"= {at['projected_attainment_pct']:.0f}% of the {at['annual_target_eur']:,.0f} EUR "
+            f"plan"
+            + (f" ({at['plan_growth_pct']:.0f}% assumed)" if at['target_is_assumed'] else "")
+            + f" - {at['status']}; {int(at['interval'] * 100)}% interval "
+            f"{at['attainment_low_pct']:.0f}-{at['attainment_high_pct']:.0f}% of plan "
+            f"(gap {at['gap_to_target_eur']:+,.0f} EUR). Modelled projection, not a guarantee.")
     if kpi_alerts and kpi_alerts["summary"]["total_alerts"]:
         s = kpi_alerts["summary"]
         worst = kpi_alerts["alerts"][0]
@@ -187,6 +214,12 @@ def write_deliverables(analysis: dict[str, Any], outdir: Path | None = None) -> 
     cpng = _write_control_chart_chart(analysis, out)
     if cpng:
         made.append(cpng)
+    pbsvg = _write_pacing_svg(analysis, out)
+    if pbsvg:
+        made.append(pbsvg)
+    pbpng = _write_pacing_chart(analysis, out)
+    if pbpng:
+        made.append(pbpng)
     return made
 
 
@@ -344,6 +377,49 @@ def _write_markdown(a: dict, out: Path) -> str:
             lines += ["", f"*In control this period: {', '.join(s['kpis_in_control'])} "
                           f"(no month outside its robust control limits). See "
                           f"`kpi_control_chart.svg`.*"]
+    at = a.get("target_attainment")
+    if at and at.get("available"):
+        lines += ["", "## 10. Target attainment & run-rate to plan",
+                  f"- {pacing.plain_language(at)}",
+                  f"- Standing at **{at['as_of']}** ({at['months_elapsed']} of 12 months of "
+                  f"{at['fiscal_year']}): YTD revenue **{at['ytd_actual_eur']:,.0f} EUR** "
+                  f"vs a seasonally-paced plan-to-date of {at['expected_to_date_eur']:,.0f} EUR "
+                  f"(pace index {at['pace_index']:.2f}; "
+                  f"{'ahead of' if at['pace_gap_eur'] >= 0 else 'behind'} the plan curve by "
+                  f"{abs(at['pace_gap_eur']):,.0f} EUR).",
+                  f"- Plan: **{at['annual_target_eur']:,.0f} EUR**"
+                  + (f" — *assumed* prior-FY revenue ({at['prior_fy_revenue_eur']:,.0f} EUR) "
+                     f"× (1 + {at['plan_growth_pct']:.0f}%); the dataset carries no budget, so "
+                     f"attainment moves with this rate." if at['target_is_assumed']
+                     else " (supplied)."),
+                  f"- Projection (model **{at['forecast_model']}**, "
+                  f"remaining {at['months_remaining']} mo): full year lands at "
+                  f"**{at['projected_full_year_eur']:,.0f} EUR** = "
+                  f"**{at['projected_attainment_pct']:.1f}%** of plan "
+                  f"(gap **{at['gap_to_target_eur']:+,.0f} EUR**). "
+                  f"Simple annualise-the-YTD run-rate for comparison: "
+                  f"{at['simple_run_rate_projection_eur']:,.0f} EUR.",
+                  f"- {int(at['interval'] * 100)}% prediction interval: "
+                  f"**{at['interval_low_eur']:,.0f} – {at['interval_high_eur']:,.0f} EUR** "
+                  f"({at['attainment_low_pct']:.1f}–{at['attainment_high_pct']:.1f}% of plan), "
+                  f"from the model's {at['backtest_folds']}-fold walk-forward errors "
+                  f"(sigma {at['backtest_error_sigma_eur']:,.0f} EUR/mo, aggregated over the "
+                  f"remaining months). A modelled band, not a guarantee."]
+        if at.get("realized_full_year_eur") is not None:
+            inside = at["realized_within_interval"]
+            lines.append(
+                f"- **Back-check** (the fiscal year is closed in this synthetic history): "
+                f"the realised full year was **{at['realized_full_year_eur']:,.0f} EUR** "
+                f"({at['realized_attainment_pct']:.1f}% of plan) — "
+                + ("inside" if inside else "**outside**")
+                + f" the projected {int(at['interval'] * 100)}% interval"
+                + ("" if inside else ", as ~1 year in 5 is expected to be, and here because the "
+                   "final quarter ran materially hotter than the prior year the seasonal-naive "
+                   "model repeats") + ". See `pacing_bullet.svg`.")
+        lines.append("")
+        lines.append("*Pacing is out-of-sample and honest: the projection uses the same "
+                     "rolling-origin-CV-selected forecaster as the rest of the toolkit, the "
+                     "interval is empirical, and the plan is a stated assumption. Synthetic data.*")
     (out / "management_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return "management_report.md"
 
@@ -449,6 +525,48 @@ def _write_xlsx(a: dict, out: Path) -> str | None:
         s.append(["Note", "Volume series (revenue, orders) excluded from level-anomaly "
                           "detection on 24 points; see forecast CV + revenue bridge. "
                           "Synthetic data."])
+    at = a.get("target_attainment")
+    if at and at.get("available"):
+        s = wb.create_sheet("Pacing to plan")
+        s.append(["Sales pacing & target attainment"])
+        s["A1"].font = Font(bold=True, size=13)
+        s.append([])
+        pacing_rows = [
+            ("Fiscal year", at["fiscal_year"]),
+            ("As of", at["as_of"]),
+            ("Months elapsed / remaining", f"{at['months_elapsed']} / {at['months_remaining']}"),
+            ("YTD actual EUR", at["ytd_actual_eur"]),
+            ("Plan-to-date (seasonalized) EUR", at["expected_to_date_eur"]),
+            ("Pace index (YTD / plan-to-date)", at["pace_index"]),
+            ("Annual plan EUR", at["annual_target_eur"]),
+            ("Plan is assumed?", at["target_is_assumed"]),
+            ("Plan growth % (if assumed)", at["plan_growth_pct"]),
+            ("Prior-FY revenue EUR", at["prior_fy_revenue_eur"]),
+            ("Projection model", at["forecast_model"]),
+            ("Projection CV-MASE", at["forecast_cv_mase"]),
+            ("Projected remaining EUR", at["projected_remaining_eur"]),
+            ("Projected full-year EUR", at["projected_full_year_eur"]),
+            ("Simple annualise-YTD run-rate EUR", at["simple_run_rate_projection_eur"]),
+            (f"{int(at['interval'] * 100)}% interval low EUR", at["interval_low_eur"]),
+            (f"{int(at['interval'] * 100)}% interval high EUR", at["interval_high_eur"]),
+            ("Backtest folds", at["backtest_folds"]),
+            ("Backtest error sigma EUR/mo", at["backtest_error_sigma_eur"]),
+            ("Projected attainment %", at["projected_attainment_pct"]),
+            ("Attainment low–high %", f"{at['attainment_low_pct']}–{at['attainment_high_pct']}"),
+            ("Gap to plan EUR", at["gap_to_target_eur"]),
+            ("Status", at["status"]),
+            ("Realised full-year EUR", at["realized_full_year_eur"]),
+            ("Realised attainment %", at["realized_attainment_pct"]),
+            ("Realised within interval?", at["realized_within_interval"]),
+        ]
+        for label, val in pacing_rows:
+            s.append([label, val])
+        s.append([])
+        s.append(["Note", at["target_note"]])
+        s.append(["Note", "Projection is out-of-sample (rolling-origin-CV-selected model); "
+                          "the interval is an empirical, normal-approx band aggregated over "
+                          "the remaining months (independence assumption). Modelled, not a "
+                          "guarantee. Synthetic data."])
     wb.save(out / "kpi_workbook.xlsx")
     return "kpi_workbook.xlsx"
 
@@ -979,3 +1097,173 @@ def _write_pvm_chart(a: dict, out: Path) -> str | None:
     fig.savefig(out / "pvm_waterfall.png", dpi=140)
     plt.close(fig)
     return "pvm_waterfall.png"
+
+
+# --------------------------------------------------------------------------- #
+# Sales pacing — offline bullet chart (YTD + projection vs plan, with interval)
+# --------------------------------------------------------------------------- #
+def render_pacing_svg(att: dict[str, Any]) -> str:
+    """The sales-pacing **bullet chart** as a self-contained, offline SVG string —
+    no server, no CDN, no external asset references, pure stdlib.
+
+    A Stephen-Few bullet graph is the canonical target-attainment visual: a measure
+    bar (here YTD actual + the projected remaining months) read against a target
+    marker (the plan), with the projection's prediction interval drawn as a whisker
+    and — because this synthetic fiscal year has closed — the realised landing shown
+    as a back-check marker. Every euro figure on the chart comes from
+    `pacing.pacing_steps(att)`, the same model the tests assert against, and is drawn
+    to the cent so the picture can be reconciled to source (screen == source).
+    """
+    st = pacing.pacing_steps(att)
+    ytd = st["ytd_actual_eur"]
+    projr = st["projected_remaining_eur"]
+    proj = st["projected_full_year_eur"]
+    lo, hi = st["interval_low_eur"], st["interval_high_eur"]
+    target = st["target_eur"]
+    realized = st["realized_full_year_eur"]
+    proj_att = st["projected_attainment_pct"]
+    status = st["status"]
+    pct = int(round(att["interval"] * 100))
+
+    W, H = 940, 340
+    m = {"t": 66, "r": 24, "b": 74, "l": 28}
+    iw = W - m["l"] - m["r"]
+    xmax = max(target, hi, proj, realized or 0.0) * 1.08 or 1.0
+
+    def x(v: float) -> float:
+        return m["l"] + v / xmax * iw
+
+    bar_y, bar_h = 172, 52
+    cy = bar_y + bar_h / 2
+    blue, light, ink, grey, purple = "#2f6bff", "#9db8f0", "#0b0b0b", "#52514e", "#7a3ea8"
+    status_col = "#2f9e6f" if proj_att >= 100 else "#d9822b" if proj_att >= 97 else "#e34948"
+
+    def anchor(v: float) -> str:
+        return "end" if x(v) > m["l"] + iw * 0.82 else "middle"
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" role="img" '
+        f'aria-label="{_svg_esc(st["fiscal_year"])} sales pacing bullet chart: '
+        f'year-to-date actual plus projected remaining revenue against the plan target, '
+        f'with a {pct}% prediction interval and the realised landing" '
+        f'font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">',
+        f'<rect x="0" y="0" width="{W}" height="{H}" fill="#fcfcfb"/>',
+        f'<text x="{m["l"]}" y="28" font-size="15" font-weight="700" fill="{ink}">'
+        f'{_svg_esc(st["fiscal_year"])} &#8212; sales pacing to plan</text>',
+        f'<text x="{m["l"]}" y="48" font-size="12" fill="#52514e">'
+        f'As of {_svg_esc(st["as_of"])} &#183; {att["months_elapsed"]}/12 months &#183; '
+        f'projection model {_svg_esc(str(att["forecast_model"]))}</text>',
+        f'<text x="{W - m["r"]}" y="30" text-anchor="end" font-size="22" font-weight="750" '
+        f'fill="{status_col}">{proj_att:.1f}% of plan</text>',
+        f'<text x="{W - m["r"]}" y="50" text-anchor="end" font-size="12" fill="{status_col}">'
+        f'{_svg_esc(status)}</text>',
+    ]
+    # x-axis gridlines + ticks (EUR millions, 1 dp -> never a false "cents" match)
+    for t in range(5):
+        val = xmax * t / 4
+        xx = x(val)
+        parts.append(f'<line x1="{xx:.1f}" y1="{bar_y - 6}" x2="{xx:.1f}" y2="{bar_y + bar_h + 6}" '
+                     f'stroke="#e1e0d9" stroke-width="1"/>')
+        parts.append(f'<text x="{xx:.1f}" y="{H - 8}" text-anchor="middle" font-size="10.5" '
+                     f'fill="#898781">&#8364;{val / 1e6:,.1f}M</text>')
+    # track + the measure (YTD actual, then the projected remaining months)
+    parts.append(f'<rect x="{x(0):.1f}" y="{bar_y}" width="{iw}" height="{bar_h}" '
+                 f'fill="#ecebe4" rx="4"/>')
+    parts.append(f'<rect x="{x(0):.1f}" y="{bar_y}" width="{max(1.0, x(ytd) - x(0)):.1f}" '
+                 f'height="{bar_h}" fill="{blue}" rx="4"/>')
+    parts.append(f'<rect x="{x(ytd):.1f}" y="{bar_y}" width="{max(1.0, x(proj) - x(ytd)):.1f}" '
+                 f'height="{bar_h}" fill="{light}"/>')
+    # prediction-interval whisker around the projected landing
+    parts.append(f'<line x1="{x(lo):.1f}" y1="{cy:.1f}" x2="{x(hi):.1f}" y2="{cy:.1f}" '
+                 f'stroke="{ink}" stroke-width="2"/>')
+    for v in (lo, hi):
+        parts.append(f'<line x1="{x(v):.1f}" y1="{cy - 8:.1f}" x2="{x(v):.1f}" y2="{cy + 8:.1f}" '
+                     f'stroke="{ink}" stroke-width="2"/>')
+    # target (plan) marker
+    parts.append(f'<line x1="{x(target):.1f}" y1="{bar_y - 14}" x2="{x(target):.1f}" '
+                 f'y2="{bar_y + bar_h + 14}" stroke="{ink}" stroke-width="2.5"/>')
+    parts.append(f'<text x="{x(target):.1f}" y="{bar_y - 20}" text-anchor="{anchor(target)}" '
+                 f'font-size="11.5" font-weight="650" fill="{ink}">Plan &#8364;{target:,.2f}</text>')
+    # projected full-year label above the bar end
+    parts.append(f'<text x="{x(proj):.1f}" y="{bar_y - 40}" text-anchor="{anchor(proj)}" '
+                 f'font-size="11.5" font-weight="650" fill="{blue}">'
+                 f'Projected FY &#8364;{proj:,.2f}</text>')
+    # segment labels below the bar
+    parts.append(f'<text x="{(x(0) + x(ytd)) / 2:.1f}" y="{bar_y + bar_h + 20}" '
+                 f'text-anchor="middle" font-size="11" fill="{ink}">YTD &#8364;{ytd:,.2f}</text>')
+    parts.append(f'<text x="{(x(ytd) + x(proj)) / 2:.1f}" y="{bar_y + bar_h + 20}" '
+                 f'text-anchor="middle" font-size="10.5" fill="{grey}">'
+                 f'+&#8364;{projr:,.2f} projected</text>')
+    # realised back-check marker (only when the fiscal year has closed in the data)
+    if realized is not None:
+        rc = "#2f9e6f" if att.get("realized_within_interval") else purple
+        parts.append(f'<line x1="{x(realized):.1f}" y1="{bar_y - 8}" x2="{x(realized):.1f}" '
+                     f'y2="{bar_y + bar_h + 8}" stroke="{rc}" stroke-width="2" '
+                     f'stroke-dasharray="4 3"/>')
+        parts.append(f'<text x="{x(realized):.1f}" y="{bar_y + bar_h + 40}" '
+                     f'text-anchor="{anchor(realized)}" font-size="11" font-weight="600" '
+                     f'fill="{rc}">Realised &#8364;{realized:,.2f}</text>')
+    # interval caption
+    parts.append(f'<text x="{x((lo + hi) / 2):.1f}" y="{bar_y + bar_h + 62}" text-anchor="middle" '
+                 f'font-size="10.5" fill="{grey}">{pct}% interval '
+                 f'&#8364;{lo:,.2f} &#8211; &#8364;{hi:,.2f}</text>')
+    parts.append(
+        f'<text x="{m["l"]}" y="{H - 26}" font-size="10.5" fill="#898781">'
+        f'Plan is an assumed target &#183; projection &amp; interval are modelled '
+        f'(out-of-sample), not a guarantee &#183; realised shown as a closed-year '
+        f'back-check &#183; synthetic data</text>')
+    parts.append("</svg>")
+    return "\n".join(parts) + "\n"
+
+
+def _write_pacing_svg(a: dict, out: Path) -> str | None:
+    """Offline SVG pacing bullet chart (stdlib only — always produced)."""
+    at = a.get("target_attainment")
+    if not at or not at.get("available"):
+        return None
+    (out / "pacing_bullet.svg").write_text(render_pacing_svg(at), encoding="utf-8")
+    return "pacing_bullet.svg"
+
+
+def _write_pacing_chart(a: dict, out: Path) -> str | None:
+    """Matplotlib PNG of the pacing bullet chart (optional — same model as the SVG,
+    so the two cannot diverge). Skipped if matplotlib is absent."""
+    at = a.get("target_attainment")
+    if not at or not at.get("available"):
+        return None
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return None
+    st = pacing.pacing_steps(at)
+    ytd = st["ytd_actual_eur"] / 1e6
+    projr = st["projected_remaining_eur"] / 1e6
+    proj = st["projected_full_year_eur"] / 1e6
+    lo, hi = st["interval_low_eur"] / 1e6, st["interval_high_eur"] / 1e6
+    target = st["target_eur"] / 1e6
+    realized = None if st["realized_full_year_eur"] is None else st["realized_full_year_eur"] / 1e6
+    blue, light, ink, purple = "#2f6bff", "#9db8f0", "#1a1f2b", "#7a3ea8"
+
+    fig, ax = plt.subplots(figsize=(11, 3.2))
+    ax.barh([0], [ytd], color=blue, height=0.5, label="YTD actual")
+    ax.barh([0], [projr], left=[ytd], color=light, height=0.5, label="projected remaining")
+    ax.errorbar([proj], [0], xerr=[[proj - lo], [hi - proj]], fmt="o", color=ink,
+                capsize=5, lw=1.6, label=f"{int(round(at['interval'] * 100))}% interval")
+    ax.axvline(target, color=ink, lw=2.5, label="plan (target)")
+    if realized is not None:
+        rc = "#2f9e6f" if at.get("realized_within_interval") else purple
+        ax.axvline(realized, color=rc, lw=2, ls="--", label="realised (back-check)")
+    ax.set_yticks([])
+    ax.set_xlabel("EUR (millions)")
+    ax.set_xlim(0, max(target, hi, proj, realized or 0) * 1.08)
+    ax.set_title(f"{st['fiscal_year']} pacing to plan — projected {st['projected_attainment_pct']:.1f}% "
+                 f"of target ({st['status']})", fontsize=11)
+    ax.legend(fontsize=8, frameon=False, loc="lower right", ncol=2)
+    ax.grid(axis="x", alpha=0.3)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    fig.savefig(out / "pacing_bullet.png", dpi=140)
+    plt.close(fig)
+    return "pacing_bullet.png"

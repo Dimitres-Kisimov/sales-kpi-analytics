@@ -244,6 +244,64 @@ screen-equals-source discipline the leakage and PVM waterfalls use.
 
 ---
 
+## Sales pacing & target attainment
+
+`saleskpi.pacing` answers the between-QBR question — *are we on track to hit the
+number?* — for the current fiscal year, and it **reuses the forecast engine** rather
+than inventing a second one.
+
+**Pace.** Standing at an `as_of` month, YTD revenue is compared not to a naïve
+straight-line `target × elapsed/12` (misleading for a seasonal distributor) but to a
+**seasonally-paced** plan-to-date: `target × (prior-FY revenue in the elapsed
+month-positions ÷ prior-FY total)`. The pace index is `YTD ÷ plan-to-date` (> 1 =
+ahead of the plan curve). The straight-line figure is reported alongside for reference.
+
+**Projection.** Two run-rates: the simple *annualise-the-YTD* number
+(`YTD ÷ elapsed × 12`) every exec knows, and a **model projection** that forecasts the
+remaining months with the same rolling-origin-CV-selected forecaster the rest of the
+toolkit uses (`forecast.select_and_forecast`) and adds them to the YTD actual.
+
+**Prediction interval — empirical, not a textbook σ.** The band comes from the chosen
+model's own out-of-sample misses: `forecast.rolling_origin_errors` returns the signed
+one-step errors from the walk-forward backtest, `σ` is their standard deviation, and
+the half-width is
+
+```
+half-width = z · σ · √(remaining months)
+```
+
+with `z` the normal quantile for the requested central mass (default 80% → z ≈ 1.28,
+via `statistics.NormalDist().inv_cdf` — the same exact-stdlib inverse-normal the
+inventory engine uses). Two assumptions are stated because they matter: the
+aggregation across the remaining months uses a **normal approximation** and treats
+month-to-month errors as **independent** — a standard simplification, and on ~24
+monthly points the backtest has few folds, so the band is *indicative*, not exact. It
+is a modelled interval, **not a guarantee**; an 80% band is expected to miss roughly
+one year in five.
+
+**The plan is assumed.** The dataset carries no budget, so by default the target is
+`prior-FY revenue × (1 + PLAN_GROWTH_PCT)` with `PLAN_GROWTH_PCT = 8%` — a mildly
+stretch plan against the ~+7% underlying trend, flagged as an assumption everywhere
+(the same discipline as the discount-policy ceiling) and overridable with a real
+budget. Every attainment number moves with it; the leakage-style total (YTD, realised)
+does not.
+
+**Back-check.** Because the shipped synthetic history is a *closed* two-year span, a
+mid-year pacing snapshot can be scored against what actually happened: the module
+reports the realised full year and whether it landed inside the projected interval. The
+shipped deliverable stands at the end of **Q3 FY2025** and projects the final quarter —
+the seasonal-naive run-rate lands FY2025 at **€10.91M, 95.7% of the €11.40M plan**
+(behind plan, €0.49M short), 80% interval **€10.77M–€11.05M**; the realised year came
+in at **€11.28M (98.9%)**, *above* the projected band. That is an honest miss, because
+Q4 (October especially) ran materially hotter than the prior year the seasonal-naive
+model repeats — the projection is conservative on a trending series, which is a real
+property of the CV-selected model, shown rather than hidden (the same honesty the
+forecast's MASE > 1 gets). Rendered as `pacing_bullet.svg` — a Stephen-Few **bullet
+graph**, the canonical target-attainment visual — whose euro labels are read back and
+asserted equal to the source in a test (screen == source).
+
+---
+
 ## SQL ↔ Python cross-check
 
 The same revenue-by-region rollup is computed two ways — in Python

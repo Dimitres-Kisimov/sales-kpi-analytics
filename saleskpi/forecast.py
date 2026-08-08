@@ -201,6 +201,23 @@ def rolling_origin_cv(y: Series, model: Model, horizon: int = 1,
                     rmse=round(rm_e / n, 2), smape=round(sm_e / n, 2))
 
 
+def rolling_origin_errors(y: Series, model: Model, horizon: int = 1,
+                          min_train: int = 12, step: int = 1) -> Series:
+    """Signed out-of-sample forecast errors (actual − predicted) from the same
+    expanding-window backtest `rolling_origin_cv` scores, but returned raw rather
+    than aggregated. This is the empirical residual sample a prediction interval is
+    built from — the honest, model-specific spread of how far the chosen forecaster
+    has missed out-of-sample, in the series' own units. Deterministic; returns a
+    flat list across folds (and horizon steps when horizon > 1), empty when the
+    series is too short for even one fold."""
+    errs: Series = []
+    for t in range(min_train, len(y) - horizon + 1, step):
+        train, test = y[:t], y[t:t + horizon]
+        pred = model(train, horizon)
+        errs.extend(a - p for a, p in zip(test, pred, strict=False))
+    return errs
+
+
 # --------------------------------------------------------------------------- #
 # Demand classification (routes each series to a sensible method family)
 # --------------------------------------------------------------------------- #

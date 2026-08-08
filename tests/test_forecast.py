@@ -61,6 +61,17 @@ def test_rolling_origin_cv_none_when_too_short():
     assert F.rolling_origin_cv([1.0, 2.0, 3.0], F.naive, min_train=12) is None
 
 
+def test_rolling_origin_errors_are_signed_and_counted():
+    # perfectly linear series, step 1: naive predicts y[t-1], actual is y[t-1]+1,
+    # so every out-of-sample error is exactly +1, and there are len-min_train folds.
+    y = [float(v) for v in range(1, 25)]           # 24 points
+    errs = F.rolling_origin_errors(y, F.naive, horizon=1, min_train=12)
+    assert len(errs) == 12                          # origins t = 12..23
+    assert all(abs(e - 1.0) < 1e-9 for e in errs)   # signed (actual − pred), not |·|
+    # too short for even one fold -> empty
+    assert F.rolling_origin_errors([1.0, 2.0, 3.0], F.naive, min_train=12) == []
+
+
 def test_select_and_forecast_winner_and_sorted_leaderboard():
     y = [float(v) for v in [100, 120, 90, 140, 110, 130, 95, 150, 115, 135,
                             100, 160, 105, 125, 92, 145, 112, 132, 97, 152,
